@@ -1,0 +1,15 @@
+{:tasks
+ {test-all
+  {:doc "Run tests for all examples"
+   :task (do
+           (babashka.process/shell {:dir "blog-app"} "clojure" "-M:test")
+           (babashka.process/shell {:dir "notification-service"} "clojure" "-M:test")
+           (babashka.process/shell {:dir "ecommerce-api"} "clojure" "-M:test"))}
+
+  bump-boundary
+  {:doc "Bump Boundary library version across all examples. Usage: bb bump-boundary 1.0.2-alpha-1"
+   :task (let [new-ver (first *command-line-args*)]
+           (when-not new-ver (throw (ex-info "Usage: bb bump-boundary <version>" {})))
+           (doseq [f ["ecommerce-api/deps.edn"]]
+             (spit f (str/replace (slurp f) #"1\.\d+\.\d+-alpha-\d+" new-ver)))
+           (println "Bumped to" new-ver))}}}
