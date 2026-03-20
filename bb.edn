@@ -11,5 +11,5 @@
    :task (let [new-ver (first *command-line-args*)]
            (when-not new-ver (throw (ex-info "Usage: bb bump-boundary <version>" {})))
            (doseq [f ["ecommerce-api/deps.edn"]]
-             (spit f (str/replace (slurp f) #"1\.\d+\.\d+-alpha-\d+" new-ver)))
+             (spit f (str/replace (slurp f) (re-pattern "1\\.\\d+\\.\\d+-alpha-\\d+") new-ver)))
            (println "Bumped to" new-ver))}}}
