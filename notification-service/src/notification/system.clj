@@ -28,34 +28,34 @@
   [env-config]
   {;; Message Bus
    :notification/bus {}
-   
+
    ;; Stores
    :notification/event-store {}
    :notification/notification-store {}
-   
+
    ;; Notification Sender
    :notification/sender
    {:config {:channels {:email {:enabled true}
                         :sms {:enabled true}
                         :push {:enabled true}}}}
-   
+
    ;; Services
    :notification/event-service
    {:store (ig/ref :notification/event-store)
     :bus (ig/ref :notification/bus)}
-   
+
    :notification/notification-service
    {:store (ig/ref :notification/notification-store)
     :sender (ig/ref :notification/sender)
     :config {:retry {:max-attempts 3
                      :base-delay-ms 1000
                      :max-delay-ms 60000}}}
-   
+
    ;; Event Handlers
    :notification/handlers
    {:bus (ig/ref :notification/bus)
     :notification-service (ig/ref :notification/notification-service)}
-   
+
    ;; HTTP Server
    :notification/http-server
    {:port (get env-config :port 3003)
@@ -66,9 +66,9 @@
 ;; Integrant Init Methods
 ;; =============================================================================
 
-(defmethod ig/init-key :notification/bus [_ _]
+(defmethod ig/init-key :notification/bus [_ config]
   (println "Starting message bus...")
-  (bus/create-bus))
+  (bus/create-bus config))
 
 (defmethod ig/init-key :notification/event-store [_ _]
   (println "Starting event store...")
@@ -97,19 +97,29 @@
   (shipment-handler/register-handlers bus notification-service)
   {:registered [:order :payment :shipment]})
 
+(defn- wrap-json-body
+  "Parse JSON request body and associate it as :json-body."
+  [handler]
+  (fn [request]
+    (let [body-str (some-> request :body slurp)
+          json-body (when (seq body-str)
+                      (json/parse-string body-str true))]
+      (handler (assoc request :json-body json-body)))))
+
 (defmethod ig/init-key :notification/http-server [_ {:keys [port event-service notification-service]}]
   (println (str "Starting HTTP server on port " port "..."))
   (let [routes (concat
                 (event-http/routes event-service)
                 (notif-http/routes notification-service)
                 [["/health" {:get {:handler (fn [_]
-                                              (-> (response/response 
+                                              (-> (response/response
                                                    (json/generate-string {:status "ok"}))
                                                   (response/content-type "application/json")))}}]])
         router (ring/router routes)
         handler (-> (ring/ring-handler router)
                     wrap-keyword-params
-                    wrap-params)
+                    wrap-params
+                    wrap-json-body)
         server (jetty/run-jetty handler {:port port :join? false})]
     (println (str "Server running at http://localhost:" port))
     server))

@@ -22,6 +22,9 @@
         ;; Async
         org.clojure/core.async {:mvn/version "1.8.741"}
 
+        ;; CLI argument parsing
+        org.clojure/tools.cli {:mvn/version "1.1.230"}
+
         ;; Logging
         ch.qos.logback/logback-classic {:mvn/version "1.5.24"}}
 

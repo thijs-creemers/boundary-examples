@@ -8,22 +8,23 @@
 
 (defrecord InMemoryNotificationStore [notifications]
   ports/INotificationStore
-  
+
   (save-notification! [_ notification]
     (swap! notifications assoc (:id notification) notification)
     notification)
-  
+
   (find-notification [_ notification-id]
     (get @notifications notification-id))
-  
+
   (find-by-event [_ event-id]
     (->> (vals @notifications)
          (filter #(= event-id (:event-id %)))
          vec))
-  
+
   (list-notifications [_ options]
-    (let [{:keys [status channel recipient limit offset]
-           :or {limit 50 offset 0}} options
+    (let [{:keys [status channel recipient limit offset]} options
+          limit  (or limit 50)
+          offset (or offset 0)
           all-notifications (vals @notifications)
           filtered (->> all-notifications
                         (filter (fn [n]
@@ -38,7 +39,7 @@
                     vec)]
       {:notifications page
        :total total}))
-  
+
   (list-pending [_]
     (->> (vals @notifications)
          (filter #(= :pending (:status %)))

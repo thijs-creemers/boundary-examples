@@ -14,6 +14,8 @@
             [ring.adapter.jetty :as jetty]
             [ring.middleware.params :as params]
             [ring.middleware.keyword-params :as keyword-params]
+            [ring.middleware.session :as session]
+            [ring.middleware.flash :as flash]
             [blog.post.shell.persistence :as post-persistence]
             [blog.post.shell.service :as post-service]
             [blog.post.shell.http :as post-http])
@@ -44,15 +46,15 @@
    (let [config (load-config profile)]
      {;; Database connection pool
       :blog/datasource {:db-spec (:database config)}
-      
+
       ;; Post module
       :blog/post-repository {:datasource (ig/ref :blog/datasource)}
       :blog/post-service {:repository (ig/ref :blog/post-repository)}
-      
+
       ;; HTTP router
       :blog/router {:post-service (ig/ref :blog/post-service)
                     :blog-config (:blog config)}
-      
+
       ;; HTTP server
       :blog/server {:router (ig/ref :blog/router)
                     :server-config (:server config)}})))
@@ -126,6 +128,8 @@
                               :headers {"Content-Type" "text/html"}
                               :body "<h1>404 Not Found</h1>"})}))
    {:middleware [[wrap-exceptions]
+                 [session/wrap-session]
+                 [flash/wrap-flash]
                  [params/wrap-params]
                  [keyword-params/wrap-keyword-params]]}))
 

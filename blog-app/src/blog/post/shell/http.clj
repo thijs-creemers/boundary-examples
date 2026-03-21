@@ -30,7 +30,7 @@
   [params]
   {:title (get params "title")
    :content (get params "content")
-   :excerpt (let [e (get params "excerpt")] 
+   :excerpt (let [e (get params "excerpt")]
               (when-not (str/blank? e) e))
    :published (= "true" (get params "published"))})
 
@@ -44,8 +44,8 @@
 (defn- not-found-page
   "Render a 404 page."
   [opts]
-  (-> (render-page "Not Found" 
-                   [:div 
+  (-> (render-page "Not Found"
+                   [:div
                     [:h1 "Not Found"]
                     [:p "The page you're looking for doesn't exist."]
                     [:a {:href "/"} "Go home"]]
@@ -79,11 +79,11 @@
                 :user (:session request)
                 :flash (:flash request)}]
       (if-let [post (:ok result)]
-        (if (or (:published post) 
+        (if (or (:published post)
                 (= (:author-id post) (get-in request [:session :user-id])))
           (render-page (:title post)
                        (ui/post-page-content post {:show-edit-link true
-                                                    :user (:session request)})
+                                                   :user (:session request)})
                        (assoc opts :description (:excerpt post)))
           (not-found-page opts))
         (not-found-page opts)))))
@@ -183,6 +183,48 @@
           (assoc :flash {:type :success :message "Post deleted."})))))
 
 ;; =============================================================================
+;; Auth Handlers
+;; =============================================================================
+
+(defn login-handler
+  "GET /login - Login page."
+  [blog-config]
+  (fn [request]
+    (let [opts {:active :login
+                :blog-name (:name blog-config)
+                :flash (:flash request)}]
+      (render-page "Login"
+                   [:article
+                    [:h2 "Login"]
+                    [:p [:small "Demo app: any credentials will log you in as the demo author."]]
+                    [:form {:method "post" :action "/login"}
+                     [:label {:for "username"} "Username"
+                      [:input {:type "text" :id "username" :name "username"
+                               :placeholder "Enter username" :required true}]]
+                     [:label {:for "password"} "Password"
+                      [:input {:type "password" :id "password" :name "password"
+                               :placeholder "Enter password" :required true}]]
+                     [:button {:type "submit"} "Login"]]]
+                   opts))))
+
+(defn login-submit-handler
+  "POST /login - Process login."
+  [_blog-config]
+  (fn [_request]
+    (-> (response/redirect "/dashboard")
+        (assoc :session {:user-id (str->uuid "00000000-0000-0000-0000-000000000001")
+                         :name "Demo User"})
+        (assoc :flash {:type :success :message "Welcome back, Demo User!"}))))
+
+(defn logout-handler
+  "GET /logout - Clear session and redirect home."
+  [_blog-config]
+  (fn [_request]
+    (-> (response/redirect "/")
+        (assoc :session nil)
+        (assoc :flash {:type :info :message "You have been logged out."}))))
+
+;; =============================================================================
 ;; Routes
 ;; =============================================================================
 
@@ -199,7 +241,12 @@
   [;; Public routes
    ["/" {:get {:handler (home-handler post-service blog-config)}}]
    ["/posts/:slug" {:get {:handler (post-handler post-service blog-config)}}]
-   
+
+   ;; Auth routes
+   ["/login" {:get  {:handler (login-handler blog-config)}
+              :post {:handler (login-submit-handler blog-config)}}]
+   ["/logout" {:get {:handler (logout-handler blog-config)}}]
+
    ;; Dashboard routes
    ["/dashboard" {:get {:handler (dashboard-handler post-service blog-config)}}]
    ["/dashboard/posts" {:post {:handler (create-post-handler post-service blog-config)}}]

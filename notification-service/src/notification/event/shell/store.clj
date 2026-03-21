@@ -11,17 +11,18 @@
 
 (defrecord InMemoryEventStore [events processed-ids]
   ports/IEventStore
-  
+
   (save-event! [_ event]
     (swap! events assoc (:id event) event)
     event)
-  
+
   (find-event [_ event-id]
     (get @events event-id))
-  
+
   (list-events [_ options]
-    (let [{:keys [type aggregate-id since limit offset]
-           :or {limit 50 offset 0}} options
+    (let [{:keys [type aggregate-id since limit offset]} options
+          limit  (or limit 50)
+          offset (or offset 0)
           all-events (vals @events)
           filtered (->> all-events
                         (filter (fn [e]
@@ -36,10 +37,10 @@
                     vec)]
       {:events page
        :total total}))
-  
+
   (event-processed? [_ event-id]
     (contains? @processed-ids event-id))
-  
+
   (mark-processed! [_ event-id]
     (swap! processed-ids conj event-id)
     true))
