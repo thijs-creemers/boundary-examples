@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [blog-app, ecommerce-api, notification-service]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+          clj-kondo: latest
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ${{ matrix.app }}/.cpcache
+          key: ${{ runner.os }}-${{ matrix.app }}-${{ hashFiles(format('{0}/deps.edn', matrix.app)) }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.app }}-
+
+      - name: Populate clj-kondo cache for dependencies
+        working-directory: ${{ matrix.app }}
+        run: clj-kondo --lint "$(clojure -Spath)" --copy-configs --dependencies --parallel --skip-lint
+
+      - name: Lint source
+        working-directory: ${{ matrix.app }}
+        run: clj-kondo --lint src test
+
+  test:
+    name: Test (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [blog-app, ecommerce-api, notification-service]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: DeLaGuardo/setup-clojure@13
+        with:
+          cli: latest
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ${{ matrix.app }}/.cpcache
+          key: ${{ runner.os }}-${{ matrix.app }}-${{ hashFiles(format('{0}/deps.edn', matrix.app)) }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.app }}-
+
+      - name: Run tests
+        working-directory: ${{ matrix.app }}
+        run: clojure -M:test
