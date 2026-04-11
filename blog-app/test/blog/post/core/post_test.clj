@@ -6,6 +6,7 @@
    - No mocking required
    - Fast execution"
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             [blog.post.core.post :as post])
   (:import [java.time Instant]))
 
@@ -199,5 +200,5 @@
   (testing "truncates long content with ellipsis"
     (let [long-content (apply str (repeat 300 "x"))
           excerpt (post/generate-excerpt long-content)]
-      (is (clojure.string/ends-with? excerpt "..."))
+      (is (str/ends-with? excerpt "..."))
       (is (<= (count excerpt) 203)))))

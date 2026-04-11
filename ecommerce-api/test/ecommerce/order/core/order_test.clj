@@ -1,5 +1,6 @@
 (ns ecommerce.order.core.order-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
             [ecommerce.order.core.order :as order])
   (:import [java.time Instant]))
 
@@ -13,7 +14,7 @@
 (deftest generate-order-number-test
   (testing "generates valid order number format"
     (let [order-num (order/generate-order-number test-instant 42)]
-      (is (clojure.string/starts-with? order-num "ORD-"))
+      (is (str/starts-with? order-num "ORD-"))
       (is (re-matches #"ORD-\d{8}-\d{5}" order-num)))))
 
 ;; =============================================================================

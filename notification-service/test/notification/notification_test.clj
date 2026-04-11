@@ -1,6 +1,7 @@
 (ns notification.notification-test
   "Tests for notification logic and templates."
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             [notification.notification.core.notification :as notif-core])
   (:import [java.time Instant]))
 
@@ -35,8 +36,8 @@
                    :total "€99.99"}
           result (notif-core/render-template :order-confirmation context)]
       (is (:ok result))
-      (is (clojure.string/includes? (get-in result [:ok :subject]) "ORD-001"))
-      (is (clojure.string/includes? (get-in result [:ok :body]) "John Doe"))))
+      (is (str/includes? (get-in result [:ok :subject]) "ORD-001"))
+      (is (str/includes? (get-in result [:ok :body]) "John Doe"))))
 
   (testing "renders payment receipt template"
     (let [context {:order-number "ORD-002"
@@ -44,7 +45,7 @@
                    :payment-method "Credit Card"}
           result (notif-core/render-template :payment-receipt context)]
       (is (:ok result))
-      (is (clojure.string/includes? (get-in result [:ok :body]) "€50.00"))))
+      (is (str/includes? (get-in result [:ok :body]) "€50.00"))))
 
   (testing "returns error for unknown template"
     (let [result (notif-core/render-template :unknown-template {})]
