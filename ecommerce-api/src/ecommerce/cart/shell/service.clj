@@ -15,12 +15,13 @@
 (defn- get-or-create-cart [cart-repo session-id]
   (if-let [cart (ports/find-by-session cart-repo session-id)]
     cart
-    (let [new-cart (cart-core/create-cart session-id (now))]
+    (let [new-cart (cart-core/create-cart (random-uuid) session-id (now))]
       (ports/save-cart! cart-repo new-cart)
       new-cart)))
 
-(defn- enrich-cart [cart product-repo]
+(defn- enrich-cart
   "Add product info to cart items."
+  [cart product-repo]
   (let [product-ids (mapv :product-id (:items cart))
         products (if (empty? product-ids)
                    {}
@@ -34,36 +35,37 @@
 
 (defrecord CartService [cart-repository product-repository]
   ports/ICartService
-  
+
   (get-cart [_ session-id]
     (let [cart (get-or-create-cart cart-repository session-id)
           summary (enrich-cart cart product-repository)]
       {:ok summary}))
-  
+
   (add-item [_ session-id product-id quantity]
-    (let [quantity (or quantity 1)]
-      ;; Validate quantity
-      (let [qty-result (cart-core/validate-quantity quantity)]
-        (if (:error qty-result)
-          qty-result
+    (let [quantity   (or quantity 1)
+          qty-result (cart-core/validate-quantity quantity)]
+      (if (:error qty-result)
+        qty-result
           ;; Check product exists and has stock
-          (if-let [product (product-ports/find-by-id product-repository product-id)]
-            (if (< (:stock product) quantity)
-              {:error :insufficient-stock
-               :product-id product-id
-               :available (:stock product)
-               :requested quantity}
+        (if-let [product (product-ports/find-by-id product-repository product-id)]
+          (if (< (:stock product) quantity)
+            {:error :insufficient-stock
+             :product-id product-id
+             :available (:stock product)
+             :requested quantity}
               ;; Add to cart
-              (let [cart (get-or-create-cart cart-repository session-id)
-                    updated-cart (cart-core/add-item cart product-id quantity (now))
-                    item (cart-core/find-item updated-cart product-id)]
+            (let [cart         (get-or-create-cart cart-repository session-id)
+                  existing     (cart-core/find-item cart product-id)
+                  item-id      (when-not existing (random-uuid))
+                  updated-cart (cart-core/add-item cart product-id quantity (now) item-id)
+                  item         (cart-core/find-item updated-cart product-id)]
                 ;; Save item
-                (ports/save-item! cart-repository (:id cart) item)
-                (ports/save-cart! cart-repository updated-cart)
+              (ports/save-item! cart-repository (:id cart) item)
+              (ports/save-cart! cart-repository updated-cart)
                 ;; Return enriched cart
-                {:ok (enrich-cart updated-cart product-repository)}))
-            {:error :not-found :id product-id})))))
-  
+              {:ok (enrich-cart updated-cart product-repository)}))
+          {:error :not-found :id product-id}))))
+
   (update-item [_ session-id product-id quantity]
     (let [qty-result (cart-core/validate-quantity quantity)]
       (if (:error qty-result)
@@ -86,7 +88,7 @@
               {:error :not-found :id product-id})
             {:error :not-found :id product-id})
           {:error :not-found :id session-id}))))
-  
+
   (remove-item [_ session-id product-id]
     (if-let [cart (ports/find-by-session cart-repository session-id)]
       (do
@@ -95,7 +97,7 @@
           (ports/save-cart! cart-repository updated-cart)
           {:ok (enrich-cart updated-cart product-repository)}))
       {:error :not-found :id session-id}))
-  
+
   (clear-cart [_ session-id]
     (if-let [cart (ports/find-by-session cart-repository session-id)]
       (do
@@ -104,6 +106,6 @@
           (ports/save-cart! cart-repository updated-cart)
           {:ok (enrich-cart updated-cart product-repository)}))
       {:error :not-found :id session-id}))
-  
+
   (get-cart-summary [this session-id]
     (ports/get-cart this session-id)))

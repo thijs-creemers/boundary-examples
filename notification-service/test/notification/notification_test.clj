@@ -1,6 +1,7 @@
 (ns notification.notification-test
   "Tests for notification logic and templates."
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             [notification.notification.core.notification :as notif-core])
   (:import [java.time Instant]))
 
@@ -13,14 +14,14 @@
     (is (= "€10.00" (notif-core/format-price 1000 "EUR")))
     (is (= "€99.99" (notif-core/format-price 9999 "EUR")))
     (is (= "€0.50" (notif-core/format-price 50 "EUR"))))
-  
+
   (testing "formats USD prices"
     (is (= "$10.00" (notif-core/format-price 1000 "USD")))
     (is (= "$1234.56" (notif-core/format-price 123456 "USD"))))
-  
+
   (testing "formats GBP prices"
     (is (= "£10.00" (notif-core/format-price 1000 "GBP"))))
-  
+
   (testing "handles unknown currencies"
     (is (= "JPY10.00" (notif-core/format-price 1000 "JPY")))))
 
@@ -35,17 +36,17 @@
                    :total "€99.99"}
           result (notif-core/render-template :order-confirmation context)]
       (is (:ok result))
-      (is (clojure.string/includes? (get-in result [:ok :subject]) "ORD-001"))
-      (is (clojure.string/includes? (get-in result [:ok :body]) "John Doe"))))
-  
+      (is (str/includes? (get-in result [:ok :subject]) "ORD-001"))
+      (is (str/includes? (get-in result [:ok :body]) "John Doe"))))
+
   (testing "renders payment receipt template"
     (let [context {:order-number "ORD-002"
                    :amount "€50.00"
                    :payment-method "Credit Card"}
           result (notif-core/render-template :payment-receipt context)]
       (is (:ok result))
-      (is (clojure.string/includes? (get-in result [:ok :body]) "€50.00"))))
-  
+      (is (str/includes? (get-in result [:ok :body]) "€50.00"))))
+
   (testing "returns error for unknown template"
     (let [result (notif-core/render-template :unknown-template {})]
       (is (= :template-not-found (:error result))))))
@@ -100,15 +101,15 @@
     (testing "can retry failed notification under max attempts"
       (let [notification {:status :failed :attempts 1}]
         (is (true? (notif-core/can-retry? notification config)))))
-    
+
     (testing "cannot retry if max attempts reached"
       (let [notification {:status :failed :attempts 3}]
         (is (false? (notif-core/can-retry? notification config)))))
-    
+
     (testing "cannot retry sent notification"
       (let [notification {:status :sent :attempts 1}]
         (is (false? (notif-core/can-retry? notification config)))))
-    
+
     (testing "cannot retry pending notification"
       (let [notification {:status :pending :attempts 0}]
         (is (false? (notif-core/can-retry? notification config)))))))
@@ -120,14 +121,15 @@
 (deftest create-notification-test
   (testing "creates notification with all fields"
     (let [now (Instant/now)
+          notif-id (random-uuid)
           event {:id (random-uuid)
                  :type :order/placed
                  :payload {:order-number "ORD-001"
                            :customer-name "Jane"}
                  :metadata {:timestamp now}}
-          notification (notif-core/create-notification 
-                        event :email :order-confirmation "jane@example.com" now)]
-      (is (uuid? (:id notification)))
+          notification (notif-core/create-notification
+                        notif-id event :email :order-confirmation "jane@example.com" now)]
+      (is (= notif-id (:id notification)))
       (is (= (:id event) (:event-id notification)))
       (is (= :email (:channel notification)))
       (is (= "jane@example.com" (:recipient notification)))

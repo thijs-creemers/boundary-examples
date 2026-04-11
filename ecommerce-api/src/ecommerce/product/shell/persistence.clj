@@ -2,7 +2,8 @@
   "SQLite persistence adapter for products."
   (:require [ecommerce.product.ports :as ports]
             [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs])
+            [next.jdbc.result-set :as rs]
+            [clojure.string :as str])
   (:import [java.time Instant]
            [java.util UUID]))
 
@@ -74,7 +75,7 @@
   (find-by-ids [_ product-ids]
     (if (empty? product-ids)
       []
-      (let [placeholders (clojure.string/join "," (repeat (count product-ids) "?"))
+      (let [placeholders (str/join "," (repeat (count product-ids) "?"))
             sql (str "SELECT * FROM products WHERE id IN (" placeholders ")")
             params (mapv str product-ids)
             results (jdbc/execute! datasource (into [sql] params)

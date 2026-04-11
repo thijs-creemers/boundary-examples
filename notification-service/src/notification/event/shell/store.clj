@@ -2,8 +2,7 @@
   "In-memory event store implementation.
    
    For production, replace with a proper event store (EventStoreDB, Kafka, etc.)"
-  (:require [notification.event.ports :as ports])
-  (:import [java.time Instant]))
+  (:require [notification.event.ports :as ports]))
 
 ;; =============================================================================
 ;; In-Memory Store Implementation

@@ -160,7 +160,7 @@
 
 (defn update-post-handler
   "POST /dashboard/posts/:id - Update a post."
-  [post-service blog-config]
+  [post-service _]
   (fn [request]
     (let [post-id (str->uuid (get-in request [:path-params :id]))
           params (:form-params request)

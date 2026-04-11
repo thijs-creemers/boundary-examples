@@ -9,7 +9,6 @@
             [aero.core :as aero]
             [clojure.java.io :as io]
             [next.jdbc :as jdbc]
-            [next.jdbc.connection :as connection]
             [reitit.ring :as ring]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.params :as params]

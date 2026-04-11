@@ -3,6 +3,7 @@
   (:require [integrant.core :as ig]
             [aero.core :as aero]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection]
             [ring.adapter.jetty :as jetty]
@@ -72,8 +73,8 @@
       (println "  Running:" (.getName file))
       (let [sql (slurp file)]
         ;; Split by semicolon and execute each statement
-        (doseq [statement (clojure.string/split sql #";\s*\n")]
-          (when-not (clojure.string/blank? statement)
+        (doseq [statement (str/split sql #";\s*\n")]
+          (when-not (str/blank? statement)
             (try
               (jdbc/execute! datasource [statement])
               (catch Exception e

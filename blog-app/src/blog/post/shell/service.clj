@@ -40,35 +40,35 @@
 
 (defrecord PostService [repository]
   ports/IPostService
-  
+
   (get-post [_this post-id]
     (if-let [post (ports/find-post-by-id repository post-id)]
       {:ok post}
       {:error :not-found}))
-  
+
   (get-post-by-slug [_this slug]
     (if-let [post (ports/find-post-by-slug repository slug)]
       {:ok post}
       {:error :not-found}))
-  
+
   (list-published-posts [_this options]
     (let [opts (assoc-in options [:filters :published] true)
           result (ports/list-posts repository opts)]
       {:ok result}))
-  
+
   (list-author-posts [_this author-id options]
     (let [opts (assoc-in options [:filters :author-id] author-id)
           result (ports/list-posts repository opts)]
       {:ok result}))
-  
+
   (create-post [_this author-id input]
     (let [validation (validate-input schema/CreatePostRequest input)]
       (if (:error validation)
         validation
-        (let [post (post-core/create-post input author-id (now))
+        (let [post (post-core/create-post (random-uuid) input author-id (now))
               saved (ports/save-post! repository post)]
           {:ok saved}))))
-  
+
   (update-post [_this post-id input]
     (let [validation (validate-input schema/UpdatePostRequest input)]
       (if (:error validation)
@@ -78,7 +78,7 @@
                 saved (ports/save-post! repository updated)]
             {:ok saved})
           {:error :not-found}))))
-  
+
   (publish-post [_this post-id]
     (if-let [post (ports/find-post-by-id repository post-id)]
       (let [result (post-core/publish-post post (now))]
@@ -87,14 +87,14 @@
             {:ok saved})
           result))
       {:error :not-found}))
-  
+
   (unpublish-post [_this post-id]
     (if-let [post (ports/find-post-by-id repository post-id)]
       (let [result (post-core/unpublish-post post (now))
             saved (ports/save-post! repository (:ok result))]
         {:ok saved})
       {:error :not-found}))
-  
+
   (delete-post [_this post-id]
     (if (ports/find-post-by-id repository post-id)
       (do

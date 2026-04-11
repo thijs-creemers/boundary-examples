@@ -6,8 +6,7 @@
    - Navigation header
    - Footer
    - Flash messages"
-  (:require [hiccup2.core :as h]
-            [hiccup.util :refer [raw-string]]))
+  (:require [hiccup2.core :as h]))
 
 ;; =============================================================================
 ;; HTML Head
@@ -27,7 +26,7 @@
    (when (:description opts)
      [:meta {:name "description" :content (:description opts)}])
    ;; Pico CSS for minimal styling
-   [:link {:rel "stylesheet" 
+   [:link {:rel "stylesheet"
            :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"}]
    ;; HTMX for dynamic interactions
    [:script {:src "https://unpkg.com/htmx.org@1.9.10"}]
@@ -46,8 +45,8 @@
      text: Link text
      active?: Whether this is the current page"
   [href text & [active?]]
-  [:a {:href href 
-       :class (when active? "active")} 
+  [:a {:href href
+       :class (when active? "active")}
    text])
 
 (defn navigation
@@ -80,10 +79,10 @@
   (let [{:keys [blog-name]} opts
         blog-name (or blog-name "My Blog")]
     [:footer.container
-     [:small 
+     [:small
       "Built with "
-      [:a {:href "https://github.com/thijs-creemers/boundary" 
-           :target "_blank"} 
+      [:a {:href "https://github.com/thijs-creemers/boundary"
+           :target "_blank"}
        "Boundary Framework"]
       " • "
       blog-name
@@ -184,7 +183,7 @@
       ;; Previous
       (when (> current-page 1)
         [:li [:a {:href (str base-url "?page=" (dec current-page))} "← Previous"]])
-      
+
       ;; Page numbers
       (for [page (range 1 (inc total-pages))
             :when (or (<= page 3)
@@ -192,7 +191,7 @@
                       (<= (Math/abs (- page current-page)) 1))]
         [:li {:class (when (= page current-page) "active")}
          [:a {:href (str base-url "?page=" page)} page]])
-      
+
       ;; Next
       (when (< current-page total-pages)
         [:li [:a {:href (str base-url "?page=" (inc current-page))} "Next →"]])]]))

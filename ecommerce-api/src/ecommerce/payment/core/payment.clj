@@ -1,8 +1,9 @@
 (ns ecommerce.payment.core.payment
   "Pure business logic for payments.
-   
+
    Handles payment intent creation, webhook event parsing,
-   and payment status transitions.")
+   and payment status transitions."
+  (:require [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Payment Intent Creation
@@ -88,7 +89,7 @@
    Used by mock provider and for verification."
   [payload secret]
   (let [mac (javax.crypto.Mac/getInstance "HmacSHA256")
-        secret-key (javax.crypto.spec.SecretKeySpec. 
+        secret-key (javax.crypto.spec.SecretKeySpec.
                     (.getBytes secret "UTF-8") "HmacSHA256")]
     (.init mac secret-key)
     (let [hash (.doFinal mac (.getBytes payload "UTF-8"))]
@@ -102,9 +103,9 @@
   (when (and payload signature secret)
     (try
       (let [;; Parse Stripe-style signature
-            parts (into {} (map #(let [[k v] (clojure.string/split % #"=")]
+            parts (into {} (map #(let [[k v] (str/split % #"=")]
                                    [(keyword k) v])
-                                (clojure.string/split signature #",")))
+                                (str/split signature #",")))
             timestamp (:t parts)
             provided-sig (:v1 parts)
             ;; Compute expected signature

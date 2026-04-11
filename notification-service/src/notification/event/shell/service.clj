@@ -19,15 +19,16 @@
 
 (defrecord EventService [store message-bus]
   ports/IEventService
-  
+
   (publish-event [_ event-data]
     ;; Validate event data
-    (let [validation (schema/validate schema/PublishEventRequest 
+    (let [validation (schema/validate schema/PublishEventRequest
                                       (select-keys event-data [:type :aggregate-id :aggregate-type :payload]))]
       (if (:error validation)
         validation
         ;; Create event
-        (let [event (event-core/create-event event-data (:correlation-id event-data) (now))]
+        (let [corr-id (or (:correlation-id event-data) (random-uuid))
+              event   (event-core/create-event event-data corr-id (now) (random-uuid))]
           ;; Save to store
           (ports/save-event! store event)
           ;; Publish to message bus for handlers
@@ -35,12 +36,12 @@
             (doseq [topic topics]
               (bus/publish! message-bus topic event)))
           {:ok event}))))
-  
+
   (get-event [_ event-id]
     (if-let [event (ports/find-event store event-id)]
       {:ok event}
       {:error :not-found :id event-id}))
-  
+
   (list-recent-events [_ options]
     (let [result (ports/list-events store options)]
       {:ok result})))

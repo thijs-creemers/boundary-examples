@@ -42,9 +42,9 @@
 
 (defn webhook-handler
   "POST /api/webhooks/payment - Handle payment provider webhooks.
-   
+
    Verifies signature before processing event."
-  [payment-service payment-config]
+  [payment-service _]
   (fn [request]
     (let [;; Get raw body for signature verification
           raw-body (if (string? (:body request))
