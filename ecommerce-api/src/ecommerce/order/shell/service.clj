@@ -20,21 +20,21 @@
 
 (defrecord OrderService [order-repository cart-repository product-repository]
   ports/IOrderService
-  
+
   (get-order [_ order-id]
     (if-let [order (ports/find-by-id order-repository order-id)]
       {:ok order}
       {:error :not-found :id order-id}))
-  
+
   (get-order-by-number [_ order-number]
     (if-let [order (ports/find-by-number order-repository order-number)]
       {:ok order}
       {:error :not-found :id order-number}))
-  
+
   (list-customer-orders [_ email options]
     (let [result (ports/list-by-customer order-repository email options)]
       {:ok result}))
-  
+
   (create-order [_ session-id customer-info]
     ;; Validate input
     (let [validation (schema/validate schema/CheckoutRequest customer-info)]
@@ -59,7 +59,12 @@
               (if (seq stock-errors)
                 {:error :insufficient-stock :items stock-errors}
                 ;; Create order
-                (let [order (order-core/create-order (:items cart) products customer-info (now))]
+                (let [ts        (now)
+                      order-id  (random-uuid)
+                      item-ids  (mapv (fn [_] (random-uuid)) (:items cart))
+                      order-num (order-core/generate-order-number ts (rand-int 100000))
+                      order     (order-core/create-order (:items cart) products customer-info ts
+                                                         order-id item-ids order-num)]
                   ;; Save order
                   (ports/save! order-repository order)
                   (ports/save-items! order-repository (:id order) (:items order))
@@ -67,13 +72,13 @@
                   (doseq [item (:items cart)]
                     (let [product (get products (:product-id item))
                           new-stock (- (:stock product) (:quantity item))]
-                      (product-ports/save! product-repository 
-                                           (assoc product :stock new-stock :updated-at (now)))))
+                      (product-ports/save! product-repository
+                                           (assoc product :stock new-stock :updated-at ts))))
                   ;; Clear cart
                   (cart-ports/clear-cart! cart-repository (:id cart))
                   {:ok order}))))
           {:error :not-found :id "cart"}))))
-  
+
   (update-status [_ order-id new-status]
     (if-let [order (ports/find-by-id order-repository order-id)]
       (let [result (order-core/transition-status order new-status (now))]
@@ -83,7 +88,7 @@
             {:ok (:ok result)})
           result))
       {:error :not-found :id order-id}))
-  
+
   (mark-paid [_ order-id payment-intent-id]
     (if-let [order (ports/find-by-id order-repository order-id)]
       (if (= :pending (:status order))
@@ -94,7 +99,7 @@
          :from (:status order)
          :to :paid})
       {:error :not-found :id order-id}))
-  
+
   (cancel-order [_ order-id]
     (if-let [order (ports/find-by-id order-repository order-id)]
       (if (order-core/can-cancel? order)
@@ -105,7 +110,7 @@
             (doseq [item (:items order)]
               (when-let [product (product-ports/find-by-id product-repository (:product-id item))]
                 (let [new-stock (+ (:stock product) (:quantity item))]
-                  (product-ports/save! product-repository 
+                  (product-ports/save! product-repository
                                        (assoc product :stock new-stock :updated-at (now)))))))
           result)
         {:error :invalid-transition
