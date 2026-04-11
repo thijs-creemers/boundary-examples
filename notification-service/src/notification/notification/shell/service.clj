@@ -18,17 +18,17 @@
 
 (defrecord NotificationService [store sender config]
   ports/INotificationService
-  
+
   (create-notification [_ event channel template]
     (let [recipient (event-core/extract-recipient event)]
       (if recipient
-        (let [notification (notif-core/create-notification 
-                           event channel template recipient (now))]
+        (let [notification (notif-core/create-notification
+                            (random-uuid) event channel template recipient (now))]
           (ports/save-notification! store notification)
           {:ok notification})
         {:error :invalid-recipient
          :message "Could not extract recipient from event"})))
-  
+
   (send-and-update [_ notification-id]
     (if-let [notification (ports/find-notification store notification-id)]
       (let [result (ports/send-notification! sender notification)]
@@ -42,7 +42,7 @@
             (ports/save-notification! store updated)
             {:ok updated})))
       {:error :not-found :id notification-id}))
-  
+
   (retry-notification [this notification-id]
     (if-let [notification (ports/find-notification store notification-id)]
       (let [retry-config (:retry config)]
@@ -55,12 +55,12 @@
            :attempts (:attempts notification)
            :max-attempts (:max-attempts retry-config)}))
       {:error :not-found :id notification-id}))
-  
+
   (get-notification [_ notification-id]
     (if-let [notification (ports/find-notification store notification-id)]
       {:ok notification}
       {:error :not-found :id notification-id}))
-  
+
   (list-notifications [_ options]
     (let [result (ports/list-notifications store options)]
       {:ok result})))
