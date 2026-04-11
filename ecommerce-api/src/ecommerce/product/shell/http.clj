@@ -2,16 +2,11 @@
   "HTTP handlers for product API."
   (:require [ecommerce.product.ports :as ports]
             [ecommerce.product.core.product :as product-core]
-            [ecommerce.shared.http.responses :as resp])
-  (:import [java.util UUID]))
+            [ecommerce.shared.http.responses :as resp]))
 
 ;; =============================================================================
 ;; Helpers
 ;; =============================================================================
-
-(defn- str->uuid [s]
-  (try (UUID/fromString s)
-       (catch Exception _ nil)))
 
 (defn- parse-query-params [params]
   {:limit (some-> (get params "limit") parse-long)

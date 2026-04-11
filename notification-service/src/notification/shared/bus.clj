@@ -6,7 +6,7 @@
    - Async message processing with core.async
    - Multiple subscribers per topic
    - Dead letter queue for failed messages"
-  (:require [clojure.core.async :as async :refer [go go-loop <! >! chan close!]]))
+  (:require [clojure.core.async :as async :refer [go-loop <! chan close!]]))
 
 ;; =============================================================================
 ;; Protocol
@@ -14,17 +14,17 @@
 
 (defprotocol IMessageBus
   "Message bus interface for pub/sub messaging."
-  
+
   (publish! [this topic message]
     "Publish a message to a topic. Returns true if accepted.")
-  
+
   (subscribe! [this topic handler-fn]
     "Subscribe to a topic. handler-fn receives messages.
      Returns subscription id.")
-  
+
   (unsubscribe! [this subscription-id]
     "Remove a subscription.")
-  
+
   (stop! [this]
     "Stop the message bus and close all channels."))
 
@@ -34,7 +34,7 @@
 
 (defrecord InMemoryBus [config input-chan subscriptions workers running? metrics]
   IMessageBus
-  
+
   (publish! [_ topic message]
     (when @running?
       (let [envelope {:topic topic
@@ -43,20 +43,20 @@
                       :id (random-uuid)}]
         (swap! metrics update :published inc)
         (async/put! input-chan envelope))))
-  
+
   (subscribe! [_ topic handler-fn]
     (let [sub-id (random-uuid)]
       (swap! subscriptions assoc sub-id {:topic topic
-                                          :handler handler-fn})
+                                         :handler handler-fn})
       (swap! metrics update-in [:subscriptions topic] (fnil inc 0))
       sub-id))
-  
+
   (unsubscribe! [_ subscription-id]
     (when-let [sub (get @subscriptions subscription-id)]
       (swap! subscriptions dissoc subscription-id)
       (swap! metrics update-in [:subscriptions (:topic sub)] dec)
       true))
-  
+
   (stop! [_]
     (reset! running? false)
     (close! input-chan)

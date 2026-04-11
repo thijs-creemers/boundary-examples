@@ -1,6 +1,7 @@
 (ns notification.main
   "Main entry point for the notification service."
   (:require [notification.system :as system]
+            [clojure.string :as str]
             [clojure.tools.cli :refer [parse-opts]])
   (:gen-class))
 
@@ -26,7 +27,7 @@
         "Examples:"
         "  Start server:           java -jar notification-service.jar"
         "  Start on custom port:   java -jar notification-service.jar --port 8080"]
-       (clojure.string/join \newline)))
+       (str/join \newline)))
 
 ;; =============================================================================
 ;; Main Entry Point
@@ -63,7 +64,7 @@
       (:help options)
       (do (println (usage summary))
           (System/exit 0))
-      
+
       errors
       (do (println "Errors:")
           (doseq [err errors]
@@ -71,7 +72,7 @@
           (println "")
           (println (usage summary))
           (System/exit 1))
-      
+
       :else
       (do
         (start! {:port (:port options)})

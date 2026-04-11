@@ -1,7 +1,8 @@
 (ns notification.event.core.event
   "Pure business logic for domain events.
-   
-   Includes event creation, routing, and validation.")
+
+   Includes event creation, routing, and validation."
+  (:require [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Event Creation
@@ -110,9 +111,9 @@
   [event]
   (let [type-name (name (:type event))]
     (cond
-      (clojure.string/starts-with? type-name "order") :order
-      (clojure.string/starts-with? type-name "payment") :payment
-      (clojure.string/starts-with? type-name "shipment") :shipment
+      (str/starts-with? type-name "order") :order
+      (str/starts-with? type-name "payment") :payment
+      (str/starts-with? type-name "shipment") :shipment
       :else :other)))
 
 (defn aggregate-by-type

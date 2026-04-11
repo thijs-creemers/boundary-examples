@@ -2,8 +2,7 @@
   "Event handler for order-related events.
    
    Subscribes to order events and creates appropriate notifications."
-  (:require [notification.notification.ports :as notif-ports]
-            [notification.event.ports :as event-ports]))
+  (:require [notification.notification.ports :as notif-ports]))
 
 ;; =============================================================================
 ;; Order Event Handlers
@@ -14,10 +13,10 @@
    Creates order confirmation notification."
   [notification-service event]
   (println "[Handler] Processing order.placed:" (:id event))
-  (let [result (notif-ports/create-notification 
-                notification-service 
-                event 
-                :email 
+  (let [result (notif-ports/create-notification
+                notification-service
+                event
+                :email
                 :order-confirmation)]
     (if (:ok result)
       (let [notification (:ok result)]
@@ -30,10 +29,10 @@
    Creates order confirmed notification."
   [notification-service event]
   (println "[Handler] Processing order.confirmed:" (:id event))
-  (notif-ports/create-notification 
-   notification-service 
-   event 
-   :email 
+  (notif-ports/create-notification
+   notification-service
+   event
+   :email
    :order-confirmed))
 
 (defn handle-order-cancelled
@@ -41,10 +40,10 @@
    Creates order cancelled notification."
   [notification-service event]
   (println "[Handler] Processing order.cancelled:" (:id event))
-  (let [result (notif-ports/create-notification 
-                notification-service 
-                event 
-                :email 
+  (let [result (notif-ports/create-notification
+                notification-service
+                event
+                :email
                 :order-cancelled)]
     (when (:ok result)
       (notif-ports/send-and-update notification-service (get-in result [:ok :id])))))
@@ -58,9 +57,9 @@
   [bus notification-service]
   (require '[notification.shared.bus :as msg-bus])
   (let [subscribe! (resolve 'notification.shared.bus/subscribe!)]
-    (subscribe! bus :order/placed 
+    (subscribe! bus :order/placed
                 (fn [event] (handle-order-placed notification-service event)))
-    (subscribe! bus :order/confirmed 
+    (subscribe! bus :order/confirmed
                 (fn [event] (handle-order-confirmed notification-service event)))
-    (subscribe! bus :order/cancelled 
+    (subscribe! bus :order/cancelled
                 (fn [event] (handle-order-cancelled notification-service event)))))

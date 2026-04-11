@@ -19,8 +19,9 @@
       (ports/save-cart! cart-repo new-cart)
       new-cart)))
 
-(defn- enrich-cart [cart product-repo]
+(defn- enrich-cart
   "Add product info to cart items."
+  [cart product-repo]
   (let [product-ids (mapv :product-id (:items cart))
         products (if (empty? product-ids)
                    {}
@@ -41,30 +42,29 @@
       {:ok summary}))
 
   (add-item [_ session-id product-id quantity]
-    (let [quantity (or quantity 1)]
-      ;; Validate quantity
-      (let [qty-result (cart-core/validate-quantity quantity)]
-        (if (:error qty-result)
-          qty-result
+    (let [quantity   (or quantity 1)
+          qty-result (cart-core/validate-quantity quantity)]
+      (if (:error qty-result)
+        qty-result
           ;; Check product exists and has stock
-          (if-let [product (product-ports/find-by-id product-repository product-id)]
-            (if (< (:stock product) quantity)
-              {:error :insufficient-stock
-               :product-id product-id
-               :available (:stock product)
-               :requested quantity}
+        (if-let [product (product-ports/find-by-id product-repository product-id)]
+          (if (< (:stock product) quantity)
+            {:error :insufficient-stock
+             :product-id product-id
+             :available (:stock product)
+             :requested quantity}
               ;; Add to cart
-              (let [cart         (get-or-create-cart cart-repository session-id)
-                    existing     (cart-core/find-item cart product-id)
-                    item-id      (when-not existing (random-uuid))
-                    updated-cart (cart-core/add-item cart product-id quantity (now) item-id)
-                    item         (cart-core/find-item updated-cart product-id)]
+            (let [cart         (get-or-create-cart cart-repository session-id)
+                  existing     (cart-core/find-item cart product-id)
+                  item-id      (when-not existing (random-uuid))
+                  updated-cart (cart-core/add-item cart product-id quantity (now) item-id)
+                  item         (cart-core/find-item updated-cart product-id)]
                 ;; Save item
-                (ports/save-item! cart-repository (:id cart) item)
-                (ports/save-cart! cart-repository updated-cart)
+              (ports/save-item! cart-repository (:id cart) item)
+              (ports/save-cart! cart-repository updated-cart)
                 ;; Return enriched cart
-                {:ok (enrich-cart updated-cart product-repository)}))
-            {:error :not-found :id product-id})))))
+              {:ok (enrich-cart updated-cart product-repository)}))
+          {:error :not-found :id product-id}))))
 
   (update-item [_ session-id product-id quantity]
     (let [qty-result (cart-core/validate-quantity quantity)]

@@ -1,7 +1,8 @@
 (ns ecommerce.order.core.order
   "Pure business logic for orders.
-   
-   Includes ORDER STATE MACHINE - defines valid status transitions.")
+
+   Includes ORDER STATE MACHINE - defines valid status transitions."
+  (:require [clojure.string :as str]))
 
 ;; =============================================================================
 ;; Order Number Generation
@@ -15,7 +16,7 @@
   (let [date-str (-> now
                      .toString
                      (subs 0 10)
-                     (clojure.string/replace "-" ""))]
+                     (str/replace "-" ""))]
     (str "ORD-" date-str "-" (format "%05d" suffix))))
 
 ;; =============================================================================
