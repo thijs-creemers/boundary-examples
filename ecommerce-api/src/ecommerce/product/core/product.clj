@@ -32,16 +32,17 @@
 
 (defn create-product
   "Create a new product entity from input.
-   
+
    Args:
+     id    - UUID for the new product (provided by caller)
      input - Map with :name, :description, :price-cents, :currency, :stock, :active
      now   - Current timestamp
-   
+
    Returns:
-     Complete product map with generated id, slug, and timestamps"
-  [input now]
+     Complete product map with id, slug, and timestamps"
+  [id input now]
   (let [name (:name input)]
-    {:id (random-uuid)
+    {:id id
      :name name
      :slug (generate-slug name)
      :description (:description input)
@@ -72,20 +73,20 @@
     (:name updates)
     (-> (assoc :name (:name updates))
         (assoc :slug (generate-slug (:name updates))))
-    
+
     ;; Update other fields if present
     (contains? updates :description)
     (assoc :description (:description updates))
-    
+
     (:price-cents updates)
     (assoc :price-cents (:price-cents updates))
-    
+
     (contains? updates :stock)
     (assoc :stock (:stock updates))
-    
+
     (contains? updates :active)
     (assoc :active (:active updates))
-    
+
     ;; Always update timestamp
     true
     (assoc :updated-at now)))
@@ -165,7 +166,7 @@
    Adds formatted price, removes internal fields."
   [product]
   (-> product
-      (assoc :price-formatted (format-price (:price-cents product) 
+      (assoc :price-formatted (format-price (:price-cents product)
                                             (:currency product)))
       (dissoc :created-at :updated-at)))
 
