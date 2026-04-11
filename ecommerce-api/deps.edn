@@ -3,16 +3,16 @@
  :deps  {;; Boundary framework (from Clojars)
          ;; boundary-admin transitively provides: boundary-user, boundary-core,
          ;; boundary-ui-style, buddy-hashers, buddy-sign, hiccup
-         org.boundary-app/boundary-admin         {:mvn/version "1.0.1-alpha-4"}
+         org.boundary-app/boundary-admin         {:mvn/version "1.0.1-alpha-12"}
          ;; boundary-platform provides: next.jdbc, honeysql, HikariCP, reitit,
          ;; muuntaja, integrant, aero, cheshire
-         org.boundary-app/boundary-platform      {:mvn/version "1.0.1-alpha-4"}
+         org.boundary-app/boundary-platform      {:mvn/version "1.0.1-alpha-12"}
          ;; boundary-observability provides: tools.logging, logback
-         org.boundary-app/boundary-observability {:mvn/version "1.0.1-alpha-4"}
-         org.boundary-app/boundary-core          {:mvn/version "1.0.1-alpha-4"}
-         org.boundary-app/boundary-user          {:mvn/version "1.0.1-alpha-4"}
-         org.boundary-app/boundary-cache         {:mvn/version "1.0.1-alpha-4"}
-         org.boundary-app/boundary-ui-style      {:mvn/version "1.0.1-alpha-4"}
+         org.boundary-app/boundary-observability {:mvn/version "1.0.1-alpha-12"}
+         org.boundary-app/boundary-core          {:mvn/version "1.0.1-alpha-12"}
+         org.boundary-app/boundary-user          {:mvn/version "1.0.1-alpha-12"}
+         org.boundary-app/boundary-cache         {:mvn/version "1.0.1-alpha-12"}
+         org.boundary-app/boundary-ui-style      {:mvn/version "1.0.1-alpha-12"}
 
 
          ;; Web server
