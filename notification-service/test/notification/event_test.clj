@@ -110,6 +110,5 @@
                  :metadata {:timestamp (Instant/now)}}
           api (event-core/event->api event)]
       (is (string? (:type api)))
-      ;; (name :order/placed) returns "placed" not "order/placed"
-      (is (= "placed" (:type api)))
+      (is (= "order/placed" (:type api)))
       (is (= "order" (:aggregate-type api))))))

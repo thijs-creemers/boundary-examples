@@ -93,7 +93,7 @@
   "Transform event for API response."
   [event]
   (-> event
-      (update :type name)
+      (update :type #(subs (str %) 1))
       (update :aggregate-type name)))
 
 (defn events->api
