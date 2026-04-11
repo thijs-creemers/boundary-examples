@@ -61,18 +61,19 @@
 
 (defn create-post
   "Create a new post entity from input data.
-   
+
    Args:
+     id: UUID for the new post (provided by caller)
      input: Map with :title, :content, optional :excerpt, :published
      author-id: UUID of the author (optional)
      now: Current timestamp
-     
+
    Returns:
      Complete post entity map ready for persistence."
-  [input author-id now]
+  [id input author-id now]
   (let [title (:title input)
         published? (boolean (:published input))]
-    {:id (random-uuid)
+    {:id id
      :author-id author-id
      :title title
      :slug (generate-slug title)
@@ -101,45 +102,45 @@
    Returns:
      Updated post entity."
   [post updates now]
-  (let [title-changed? (and (:title updates) 
+  (let [title-changed? (and (:title updates)
                             (not= (:title updates) (:title post)))
         new-title (or (:title updates) (:title post))
         was-published? (:published post)
         will-publish? (:published updates)
-        
+
         ;; Determine published-at
         published-at (cond
                        ;; Explicitly publishing for the first time
                        (and will-publish? (not was-published?))
                        now
-                       
+
                        ;; Unpublishing
                        (and (false? will-publish?) was-published?)
                        nil
-                       
+
                        ;; Keep existing
                        :else
                        (:published-at post))]
-    
+
     (cond-> post
       ;; Update title and regenerate slug if title changed
       title-changed?
       (assoc :title new-title
              :slug (generate-slug new-title))
-      
+
       ;; Update content if provided
       (:content updates)
       (assoc :content (:content updates))
-      
+
       ;; Update excerpt if provided (including nil to clear)
       (contains? updates :excerpt)
       (assoc :excerpt (:excerpt updates))
-      
+
       ;; Update published status if provided
       (contains? updates :published)
       (assoc :published (boolean (:published updates))
              :published-at published-at)
-      
+
       ;; Always update timestamp
       true
       (assoc :updated-at now))))
