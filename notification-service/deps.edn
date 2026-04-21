@@ -1,11 +1,11 @@
 {:paths ["src" "resources"]
 
  :deps {;; Web server
-        ring/ring-core {:mvn/version "1.15.3"}
-        ring/ring-jetty-adapter {:mvn/version "1.15.3"}
+        ring/ring-core {:mvn/version "1.15.4"}
+        ring/ring-jetty-adapter {:mvn/version "1.15.4"}
 
         ;; Routing
-        metosin/reitit {:mvn/version "0.10.0"}
+        metosin/reitit {:mvn/version "0.10.1"}
 
         ;; Configuration
         aero/aero {:mvn/version "1.1.6"}
@@ -14,30 +14,30 @@
         integrant/integrant {:mvn/version "1.0.1"}
 
         ;; Validation
-        metosin/malli {:mvn/version "0.20.0"}
+        metosin/malli {:mvn/version "0.20.1"}
 
         ;; JSON
-        cheshire/cheshire {:mvn/version "6.1.0"}
+        cheshire/cheshire {:mvn/version "6.2.0"}
 
         ;; Async
-        org.clojure/core.async {:mvn/version "1.8.741"}
+        org.clojure/core.async {:mvn/version "1.9.865"}
 
         ;; CLI argument parsing
-        org.clojure/tools.cli {:mvn/version "1.1.230"}
+        org.clojure/tools.cli {:mvn/version "1.4.256"}
 
         ;; Logging
-        ch.qos.logback/logback-classic {:mvn/version "1.5.24"}}
+        ch.qos.logback/logback-classic {:mvn/version "1.5.32"}}
 
  :aliases
  {:dev
   {:extra-paths ["test"]
-   :extra-deps  {integrant/repl {:mvn/version "0.5.0"}}}
+   :extra-deps  {integrant/repl {:mvn/version "0.5.1"}}}
 
   :repl-clj
   {:extra-paths ["dev"]
-   :extra-deps  {integrant/repl    {:mvn/version "0.5.0"}
-                 nrepl/nrepl       {:mvn/version "1.5.2"}
-                 cider/cider-nrepl {:mvn/version "0.58.0"}}
+   :extra-deps  {integrant/repl    {:mvn/version "0.5.1"}
+                 nrepl/nrepl       {:mvn/version "1.7.0"}
+                 cider/cider-nrepl {:mvn/version "0.59.0"}}
    :main-opts   ["-m" "nrepl.cmdline"
                  "--middleware" "[cider.nrepl/cider-middleware]"
                  "--port" "7891"]}
