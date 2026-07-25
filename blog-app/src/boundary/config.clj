@@ -100,30 +100,16 @@
         _         (when geo? (require 'boundary.geo.shell.module-wiring))
 
         db       (db-spec config)
-        http-cfg (get active :boundary/http {:port 3000 :host "0.0.0.0" :join? false})
         router   (get active :boundary/router {:adapter :reitit :coercion :malli :middleware []})
         i18n-cfg (get active :boundary/i18n {:catalogue-path "boundary/i18n/translations"
                                              :default-locale  :en})
         val-cfg  (get-in active [:boundary/settings :user-validation] {})
 
-        ;; Build HTTP handler config, injecting optional module refs as they are enabled
-        http-handler-cfg (cond-> {:config          config
-                                  :user-routes     (ig/ref :boundary/user-routes)
-                                  :router          (ig/ref :boundary/router)
-                                  :logger          (ig/ref :boundary/logging)
-                                  :metrics-emitter (ig/ref :boundary/metrics)
-                                  :error-reporter  (ig/ref :boundary/error-reporting)
-                                  :user-service    (ig/ref :boundary/user-service)
-                                  :db-context      (ig/ref :boundary/db-context)
-                                  :i18n            (ig/ref :boundary/i18n)}
-                           cache?    (assoc :cache              (ig/ref :boundary/cache))
-                           tenant?   (assoc :tenant-routes      (ig/ref :boundary/tenant-routes)
-                                            :membership-routes  (ig/ref :boundary/membership-routes)
-                                            :tenant-service     (ig/ref :boundary/tenant-service)
-                                            :membership-service (ig/ref :boundary/membership-service))
-                           admin?    (assoc :admin-routes       (ig/ref :boundary/admin-routes))
-                           workflow? (assoc :workflow-routes    (ig/ref :boundary/workflow-routes))
-                           search?   (assoc :search-routes      (ig/ref :boundary/search-routes)))]
+        ;; Blog HTTP server config — injecting optional admin-routes ref when admin is active
+        blog-http-server-cfg (cond-> {:post-repository (ig/ref :blog/post-repository)
+                                      :user-routes     (ig/ref :boundary/user-routes)
+                                      :config          config}
+                               admin? (assoc :admin-routes (ig/ref :boundary/admin-routes)))]
 
     (cond->
      {:boundary/settings        (:boundary/settings active)
@@ -159,11 +145,9 @@
                                     :mfa-service  (ig/ref :boundary/mfa-service)
                                     :config       config}
 
-       ;; HTTP layer (always wired; optional module refs injected above)
-      :boundary/http-handler http-handler-cfg
-      :boundary/http-server  (merge http-cfg
-                                    {:handler (ig/ref :boundary/http-handler)
-                                     :config  http-cfg})}
+       ;; Blog-specific HTTP server (replaces platform :boundary/http-handler + :boundary/http-server)
+      :blog/post-repository {:db-context (ig/ref :boundary/db-context)}
+      :blog/http-server     blog-http-server-cfg}
 
       ;; Cache module — enabled by `boundary add cache`
       cache?
