@@ -10,7 +10,7 @@
   {:doc "Bump Boundary library version across all examples. Usage: bb bump-boundary 1.0.0-beta-2"
    :task (let [new-ver (first *command-line-args*)]
            (when-not new-ver (throw (ex-info "Usage: bb bump-boundary <version>" {})))
-           (doseq [f ["ecommerce-api/deps.edn"]]
+           (doseq [f ["ecommerce-api/deps.edn" "blog-app/deps.edn"]]
              (spit f (clojure.string/replace (slurp f) (re-pattern "1\\.\\d+\\.\\d+-(alpha|beta)-\\d+") new-ver)))
            (println "Bumped to" new-ver))}
 
