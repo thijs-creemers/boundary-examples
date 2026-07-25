@@ -40,7 +40,7 @@
          r (io/resource (str "conf/" (name p) "/config.edn"))]
      (when-not r
        (throw (ex-info (str "Config not found: conf/" (name p) "/config.edn")
-                       {:profile p})))
+                       {:type :internal-error :profile p})))
      (assoc (aero/read-config r {:profile p}) :boundary/profile p))))
 
 (defn- db-spec [config]
@@ -68,7 +68,7 @@
        :pool          (get-in active [:boundary/sqlite :pool])}
 
       :else (throw (ex-info "No active database adapter in config"
-                            {:active-keys (keys active)})))))
+                            {:type :internal-error :active-keys (keys active)})))))
 
 (defn ig-config
   "Build Integrant configuration map from loaded config.

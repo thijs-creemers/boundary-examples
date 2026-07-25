@@ -6,7 +6,7 @@
   :readonly-fields #{:id :author-id :created-at :updated-at}
   :fields
   {:title        {:type :string   :label "Title" :required true}
-   :slug         {:type :string   :label "Slug"}
+   :slug         {:type :string   :label "Slug" :required true}
    :content      {:type :text     :label "Content" :widget :textarea}
    :excerpt      {:type :text     :label "Excerpt" :widget :textarea}
    :published    {:type :boolean  :label "Published" :filterable true}

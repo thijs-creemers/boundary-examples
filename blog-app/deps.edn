@@ -18,11 +18,11 @@
          ;; since this blog uses the SQLite adapter (scaffold defaults to H2 only).
          org.xerial/sqlite-jdbc                  {:mvn/version "3.53.0.0"}}
  :aliases
- {:repl     {:extra-paths ["dev"]
+ {:repl-clj {:extra-paths ["dev"]
              :extra-deps {nrepl/nrepl {:mvn/version "1.3.0"}
                           cider/cider-nrepl {:mvn/version "0.50.2"}}
              :main-opts  ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"
-                          "--port" "7888"]}
+                          "--port" "7889"]}
   :test     {:extra-paths ["test"]
              :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
              :main-opts   ["-m" "kaocha.runner"]}

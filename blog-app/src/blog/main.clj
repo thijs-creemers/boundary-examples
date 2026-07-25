@@ -7,8 +7,9 @@
 
 (defn -main [& _args]
   (println "Starting blog…")
-  (let [system (ig/init (config/ig-config (config/load-config)))
-        port   (get-in (config/load-config) [:active :boundary/http :port] 3001)]
+  (let [cfg    (config/load-config)
+        system (ig/init (config/ig-config cfg))
+        port   (get-in cfg [:active :boundary/http :port] 3001)]
     (println (str "Blog running on http://localhost:" port))
     (.addShutdownHook (Runtime/getRuntime)
                       (Thread. (fn []
