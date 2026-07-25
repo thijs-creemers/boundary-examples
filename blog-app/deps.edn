@@ -29,4 +29,6 @@
   :migrate  {:main-opts ["-m" "boundary.platform.shell.database.cli-migrations"]}
 
   :smoke    {:extra-paths ["dev"]
-             :main-opts   ["-m" "smoke"]}}}
+             :main-opts   ["-m" "smoke"]}
+
+  :run      {:main-opts ["-m" "blog.main"]}}}
