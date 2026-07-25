@@ -1,0 +1,8 @@
+.env
+target/
+.cpcache/
+.clj-kondo/.cache/
+.lsp/
+*.db
+uploads/
+logs/
