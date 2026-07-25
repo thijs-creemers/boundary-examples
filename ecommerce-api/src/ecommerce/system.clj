@@ -235,7 +235,7 @@
                                                                  :description "REST API for the Boundary ecommerce example"
                                                                  :version "1.0.0"}}}})
         handler (-> (ring/ring-handler router (ring/create-default-handler))
-                    middleware/wrap-method-override   ; reads :form-params for PUT/DELETE override
+                    middleware/wrap-method-override  ; reads :form-params for PUT/DELETE override
                     wrap-params                      ; parse form + query params
                     wrap-cookies                     ; parse cookies (for session auth)
                     middleware/wrap-json-body
