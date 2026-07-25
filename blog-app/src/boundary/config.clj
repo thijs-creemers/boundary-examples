@@ -16,6 +16,9 @@
             [boundary.user.schema :as user-schema]
             ;; Loads Integrant init/halt multimethods for all system components.
             [boundary.platform.shell.system.wiring]
+            ;; beta-1: platform wiring no longer requires feature-module wirings —
+            ;; the app owns those loads (BOU-171/192/198). user is core → always.
+            [boundary.user.shell.module-wiring]
             ;; Registers :boundary/settings init-key defined in the generated app.
             [blog.system]))
 
@@ -96,6 +99,11 @@
         calendar? (boolean (:boundary/calendar active))
         ui-style? (boolean (:boundary/ui-style active))
         ;; Load module wirings for modules not covered by platform wiring
+        ;; (beta-1: the app owns feature-module wiring loads).
+        _         (when admin?    (require 'boundary.admin.shell.module-wiring))
+        _         (when tenant?   (require 'boundary.tenant.shell.module-wiring))
+        _         (when workflow? (require 'boundary.workflow.shell.module-wiring))
+        _         (when search?   (require 'boundary.search.shell.module-wiring))
         _         (when ai?  (require 'boundary.ai.shell.module-wiring))
         _         (when geo? (require 'boundary.geo.shell.module-wiring))
 
