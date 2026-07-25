@@ -4,58 +4,59 @@
 
 **Goal:** Re-platform `blog-app` onto Boundary `1.0.0-beta-1` — scaffold a fresh Boundary app, relocate it into `blog-app/`, and port the blog domain: posts managed via boundary-admin auto-CRUD, public post pages served by a custom HTMX module, author auth via boundary-user. Comments deferred.
 
-**Architecture:** Scaffold provides system/config/db/user/admin/ui-style/JWT. Because the platform HTTP handler owns `/` and has no app-route seam, blog registers its own `:blog/http-server` init-key (ecommerce pattern) combining public HTMX routes (`/`, `/posts/:slug`) with boundary user/admin normalized routes under `/web`. SQLite for parity. Pure `core/post` + `core/ui` + `layout` are reused; only read-side persistence + public HTTP handlers remain custom (admin owns writes).
+**Architecture:** Scaffold provides system/config/db/user/admin/ui-style/JWT. Because the platform HTTP handler owns `/` and has no app-route seam, blog registers its own `:blog/http-server` init-key (ecommerce pattern) combining public HTMX routes (`/`, `/posts/:slug`) with boundary user/admin normalized routes under `/web`. SQLite for parity. Posts/comments tables via **platform migratus** (`bb migrate`); user/admin tables come from the user module's `:boundary/user-db-schema` at boot. Pure `core/post` + `core/ui` + `layout` are reused; a read-only `:blog/post-repository` (on the platform db-context datasource) + public HTTP handlers remain custom (admin owns writes).
 
-**Tech Stack:** Clojure, tools.deps, Integrant, Aero, Reitit, next.jdbc + SQLite, Hiccup/HTMX, Kaocha, Babashka; Boundary `platform`/`user`/`admin`/`ui-style` at `1.0.0-beta-1`.
+**Tech Stack:** Clojure, tools.deps, Integrant, Aero, Reitit, next.jdbc + SQLite, migratus, Hiccup/HTMX, Kaocha, Babashka; Boundary `platform`/`user`/`admin`/`ui-style` at `1.0.0-beta-1`.
 
 **Spec:** `docs/superpowers/specs/2026-07-25-blog-app-beta-1-migration-design.md`
-**Reference app:** `ecommerce-api/` (custom `:*/http-server`, sqlite config, admin entity EDN, `normalized->reitit`, smoke harness) — already on beta-1 and green.
+**Reference app:** `ecommerce-api/` (custom `:*/http-server`, `normalized->reitit`, sqlite config, admin entity EDN, smoke harness) — on beta-1 and green. NOTE: ecommerce applies migrations via its own `run-migrations!` (system.clj:61) and ragtime-style filenames — blog does NOT copy that; blog uses platform `bb migrate` (migratus) instead.
 
 **Working dir:** repo root `/Users/thijscreemers/work/worktrees/boundary-examples/main`; app dir `blog-app/`. Branch: `feat/upgrade-boundary-beta-1` (do NOT switch).
 
 ---
 
-## Preserve first (do NOT lose these during scaffold relocation)
+## Key facts (verified against source)
 
-Before overwriting, copy these existing files somewhere safe (git history has them, but keep them handy) — they are ported forward:
+- **No `--base-ns` flag** (`boundary-cli/.../new.clj:123-127`). `boundary new blog` → dir `blog/`, ns `blog`. Scaffold to temp `blog/`, then relocate into `blog-app/`.
+- **Migrations use migratus** (`platform/.../database/migrations.clj:12,102-103`): format `{id}-{name}.up.sql` + `.down.sql`, `migration-dir "migrations/"`, `:store :database`. The existing `001-create-posts.sql` is ragtime-style and will be **silently ignored**. Generate correctly with `bb migrate create <name>` then paste SQL.
+- **User/admin tables** are created by the user module (`:boundary/user-db-schema` init-key) at boot — migratus only needs `posts` (+ deferred `comments`).
+- **Generated `db-spec`** (`config.clj.tmpl:48-67`) handles only `:boundary/h2`/`:boundary/postgresql`, else throws → must add a `:boundary/sqlite` branch (else `bb create-admin` throws; `bb migrate` uses a separate path and is fine). The scaffold derives `:boundary/db-context` from `(db-spec config)`, NOT from a `:boundary/db-context` key in `:active` — so only add `:boundary/sqlite` to config, not a `:boundary/db-context` map.
+- **No root `create-admin` task** (root `bb.edn` has only `test-all`, `bump-boundary`, `run-ecommerce`). The scaffold's app-level `bb.edn` DOES define `migrate` + `create-admin` (`bb.edn.tmpl:61,81`) → run them from inside `blog-app/`.
+- Platform `db-context` value is `{:adapter … :datasource …}` (`factory.clj:141`) → get the datasource via `(:datasource ctx)`.
+- Platform `:boundary/http-handler` owns `/` and has no app-route seam → build a custom `:blog/http-server` instead (do NOT redefine the platform defmethod).
+
+---
+
+## Preserve first (ported forward; in git history but keep handy)
+
+Copy to `/tmp/blog-port/` before relocation:
 - `blog-app/src/blog/post/core/post.clj` (pure) — reused as-is
-- `blog-app/src/blog/post/core/ui.clj` (pure Hiccup) — reused, minor tweaks
+- `blog-app/src/blog/post/core/ui.clj` (pure Hiccup) — reused
 - `blog-app/src/blog/shared/ui/layout.clj` — reused
 - `blog-app/src/blog/post/schema.clj` — reused
-- `blog-app/src/blog/post/ports.clj` — trim to read-only later
-- `blog-app/src/blog/post/shell/persistence.clj` — slim to read-only later
-- `blog-app/migrations/001-create-posts.sql`, `002-create-comments.sql`
+- `blog-app/src/blog/post/ports.clj` + `shell/persistence.clj` — slimmed to read-only later
+- `blog-app/migrations/001-create-posts.sql`, `002-create-comments.sql` — source SQL, re-formatted for migratus later
 - `blog-app/test/blog/post/core/post_test.clj`
 
 ---
 
-## Task 1: Scaffold a fresh Boundary app and relocate into `blog-app/`
+## Task 1: Scaffold + relocate into `blog-app/`
 
-**Files:** whole `blog-app/` tree (replace infra, keep ported domain).
+**Files:** whole `blog-app/` tree.
 
-- [ ] **Step 1: Preserve the domain files** — copy the eight files above to `/tmp/blog-port/` (preserving relative paths).
-
-- [ ] **Step 2: Scaffold** into a temp dir. From repo root:
+- [ ] **Step 1: Preserve** the domain files above into `/tmp/blog-port/` (keep relative paths).
+- [ ] **Step 2: Scaffold** from repo root: `boundary new blog --skip-git 2>&1 | tail -20` (via `~/.babashka/bbin/bin/boundary` if not on PATH). Produces `./blog/` (ns `blog`).
+- [ ] **Step 3: Inspect** — `find blog -type f | sort`; read `blog/src/boundary/config.clj`, `blog/src/blog/system.clj`, `blog/deps.edn`, `blog/resources/conf/dev/config.edn`, `blog/bb.edn`, `blog/dev/user.clj`. Note exact contents (later tasks edit them).
+- [ ] **Step 4: Relocate** — remove old vanilla infra from `blog-app/` (`src/blog/system.clj`, `src/blog/main.clj`, old `deps.edn`, old `resources/config/`); copy all scaffold files from `blog/` into `blog-app/`; restore the preserved domain files into their `blog-app/src/...`, `blog-app/test/...` locations (migrations handled in Task 3). Delete temp `blog/`.
+- [ ] **Step 5: Sanity** — `ls -R blog-app/src blog-app/resources/conf`; confirm scaffold infra + ported domain coexist.
+- [ ] **Step 6: Commit** — stage everything EXCEPT `.env`:
 ```bash
-boundary new blog --skip-git 2>&1 | tail -20   # creates ./blog/, ns "blog"
+git add -A blog-app/
+git reset -q blog-app/.env 2>/dev/null || true      # never stage the real secret
+git status --short blog-app/ | grep -q '\.env$' && { echo "ERROR: .env staged"; exit 1; } || true
+git commit -m "feat(blog): scaffold Boundary app, relocate into blog-app/, preserve domain core"
 ```
-If `boundary` isn't on PATH, run via the installed release wrapper (`~/.babashka/bbin/bin/boundary`). Expected: a `blog/` dir with `deps.edn`, `src/boundary/config.clj`, `src/blog/system.clj`, `resources/conf/{dev,test}/config.edn`, `.env`, `bb.edn`, `dev/user.clj`.
-
-- [ ] **Step 3: Inspect the generated tree** — `find blog -type f -not -path '*/.git/*' | sort`. Read `blog/src/boundary/config.clj`, `blog/src/blog/system.clj`, `blog/deps.edn`, `blog/resources/conf/dev/config.edn`, `blog/bb.edn`. Note exact contents — later steps edit them.
-
-- [ ] **Step 4: Relocate into `blog-app/`.** Replace `blog-app/`'s vanilla infra with the scaffold, then restore ported domain:
-  - Remove old vanilla files: `blog-app/src/blog/system.clj`, `blog-app/src/blog/main.clj`, old `blog-app/deps.edn`, `blog-app/resources/config/` (old aero), keeping `blog-app/.git`-tracked domain.
-  - Copy scaffold files from `blog/` into `blog-app/` (deps.edn, bb.edn, dev/user.clj, src/boundary/config.clj, src/blog/system.clj, resources/conf/**, .env, .env.example, .gitignore, tests.edn, CLAUDE.md/AGENTS.md if desired).
-  - Restore the eight preserved domain files into their `blog-app/src/...` + `blog-app/migrations/` + `blog-app/test/...` locations.
-  - Delete the temp `blog/` dir.
-
-- [ ] **Step 5: Sanity** — `ls -R blog-app/src blog-app/resources/conf blog-app/migrations`. Confirm both the scaffold infra AND the ported domain coexist.
-
-- [ ] **Step 6: Commit**
-```bash
-git add -A blog-app/ && git commit -m "feat(blog): scaffold Boundary app, relocate into blog-app/, preserve domain core"
-```
-(Do NOT commit `.env` — confirm scaffold `.gitignore` ignores it; if `blog-app/.env` is staged, unstage it.)
+Confirm scaffold `.gitignore` lists `.env`; if not, add it.
 
 ---
 
@@ -63,111 +64,75 @@ git add -A blog-app/ && git commit -m "feat(blog): scaffold Boundary app, reloca
 
 **Files:** `blog-app/deps.edn`, repo-root `bb.edn`.
 
-- [ ] **Step 1: Extend `bb bump-boundary`** — in repo-root `bb.edn`, change the file vector from `["ecommerce-api/deps.edn"]` to `["ecommerce-api/deps.edn" "blog-app/deps.edn"]`.
-
-- [ ] **Step 2: Bump** — `bb bump-boundary 1.0.0-beta-1`. Expected: `Bumped to 1.0.0-beta-1`.
-
-- [ ] **Step 3: Verify** — `grep -n org.boundary-app blog-app/deps.edn` shows all boundary libs at `1.0.0-beta-1`, no `alpha`.
-
-- [ ] **Step 4: Resolve** — `cd blog-app && clojure -Spath > /dev/null && echo RESOLVED`.
-
-- [ ] **Step 5: Commit**
-```bash
-git add blog-app/deps.edn bb.edn && git commit -m "build(blog): bump Boundary deps to 1.0.0-beta-1; add blog-app to bump task"
-```
+- [ ] **Step 1:** In repo-root `bb.edn`, change `bump-boundary`'s file vector `["ecommerce-api/deps.edn"]` → `["ecommerce-api/deps.edn" "blog-app/deps.edn"]`.
+- [ ] **Step 2:** `bb bump-boundary 1.0.0-beta-1` → `Bumped to 1.0.0-beta-1`.
+- [ ] **Step 3:** `grep -n org.boundary-app blog-app/deps.edn` → all beta-1, no `alpha`.
+- [ ] **Step 4:** `cd blog-app && clojure -Spath > /dev/null && echo RESOLVED`.
+- [ ] **Step 5: Commit** `git add blog-app/deps.edn bb.edn && git commit -m "build(blog): bump Boundary deps to 1.0.0-beta-1; add blog-app to bump task"`.
 
 ---
 
-## Task 3: SQLite config + `db-spec` patch + migrations
+## Task 3: SQLite config + `db-spec` patch + migratus migrations
 
-**Files:** `blog-app/resources/conf/dev/config.edn`, `.../test/config.edn`, `blog-app/src/boundary/config.clj`, `blog-app/migrations/`.
+**Files:** `blog-app/resources/conf/{dev,test}/config.edn`, `blog-app/src/boundary/config.clj`, `blog-app/migrations/*`.
 
-- [ ] **Step 1: Dev config** — in `resources/conf/dev/config.edn` `:active`, remove the `:boundary/h2` block and add (mirror `ecommerce-api/resources/conf/dev/config.edn`):
+- [ ] **Step 1: Dev config** — in `resources/conf/dev/config.edn` `:active`: remove the `:boundary/h2` block; add ONLY `:boundary/sqlite` (do NOT add a `:boundary/db-context` map — the scaffold derives it from `db-spec`):
 ```clojure
-:boundary/db-context {:adapter :sqlite :database-path "blog-dev.db"}
-:boundary/sqlite     {:db "blog-dev.db"
-                      :pool {:minimum-idle 1 :maximum-pool-size 3 :connection-timeout-ms 10000}}
+:boundary/sqlite {:db "blog-dev.db"
+                  :pool {:minimum-idle 1 :maximum-pool-size 3 :connection-timeout-ms 10000}}
 ```
-Keep `:boundary/settings`, `:boundary/http`, `:boundary/router`, `:boundary/logging`. Set `:boundary/settings :name "blog-dev"`.
-
-- [ ] **Step 2: Test config** — in `resources/conf/test/config.edn`, use in-memory sqlite: `:boundary/db-context {:adapter :sqlite :database-path ":memory:"}` + matching `:boundary/sqlite {:db ":memory:"}`.
-
-- [ ] **Step 3: Patch `db-spec`** — in `src/boundary/config.clj`, add a `:boundary/sqlite` branch to the `db-spec` `cond` (before `:else`):
+Set `:boundary/settings :name "blog-dev"`. Keep `:boundary/http` (set `:port 3001`), `:boundary/router`, `:boundary/logging`.
+- [ ] **Step 2: Test config** — `resources/conf/test/config.edn`: `:boundary/sqlite {:db ":memory:"}`.
+- [ ] **Step 3: Patch `db-spec`** — in `src/boundary/config.clj`, add before `:else` in the `db-spec` `cond`:
 ```clojure
 (:boundary/sqlite active)
 {:adapter :sqlite
  :database-path (get-in active [:boundary/sqlite :db])
  :pool          (get-in active [:boundary/sqlite :pool])}
 ```
-Also confirm `ig-config`'s `:boundary/db-context` uses `(db-spec config)` (or add sqlite handling wherever it maps the db). Cross-check against `ecommerce-api` for the exact db-context value shape.
-
-- [ ] **Step 4: Migrations** — ensure `blog-app/migrations/001-create-posts.sql` + `002-create-comments.sql` are present and named as the platform migration runner expects (check `bb migrate` / `ecommerce-api` migration naming). Adjust filenames if the runner needs a specific pattern.
-
-- [ ] **Step 5: Run migrations**
+- [ ] **Step 4: Generate migratus migration files** — from `blog-app/`:
 ```bash
-cd blog-app && JWT_SECRET=dev-secret-change-me-min-32-characters bb migrate 2>&1 | tail -20
+bb migrate create create-posts
+bb migrate create create-comments
 ```
-Expected: posts + comments tables created in `blog-dev.db`, no error. Verify: `sqlite3 blog-app/blog-dev.db '.tables'` shows `posts` and `comments` (plus boundary user/admin tables if the user module migrates on boot — note where those come from).
-
-- [ ] **Step 6: Commit**
-```bash
-git add blog-app/resources/conf blog-app/src/boundary/config.clj blog-app/migrations
-git commit -m "feat(blog): SQLite config + db-spec patch; port posts/comments migrations"
-```
+This creates correctly-named+located `{id}-create-posts.up.sql`/`.down.sql` (and comments) where migratus expects them. Confirm the path (`bb migrate status` or inspect the created files).
+- [ ] **Step 5: Fill the SQL** — paste the CREATE TABLE from the old `/tmp/blog-port/migrations/001-create-posts.sql` into the generated `*-create-posts.up.sql` (SQLite-compatible; drop any ragtime `--;;` separators — migratus uses `--;;` between statements, so keep multi-statement blocks separated by `--;;`). Add a matching `DROP TABLE posts;` in the `.down.sql`. Repeat for comments (`002-create-comments.sql` → up/down). Remove the old ragtime-style `001-`/`002-` files.
+- [ ] **Step 6: Run migrations** — from `blog-app/`: `bb migrate` then `bb migrate status`. Verify: `sqlite3 blog-app/blog-dev.db '.tables'` shows `posts` + `comments` (+ migratus `schema_migrations`). If tables are missing, the files weren't in the migratus dir/format — fix and re-run. (No `JWT_SECRET` needed for migration.)
+- [ ] **Step 7: Commit** `git add blog-app/resources/conf blog-app/src/boundary/config.clj blog-app/migrations && git commit -m "feat(blog): SQLite config + db-spec patch; posts/comments migratus migrations"`.
 
 ---
 
-## Task 4: Custom `:blog/http-server` routing (public + boundary /web)
+## Task 4: Port the public post read module (BEFORE http-server wiring)
 
-**Files:** `blog-app/src/boundary/config.clj` (remove platform HTTP keys), `blog-app/src/blog/system.clj` (add `:blog/http-server` + `normalized->reitit`).
+**Files:** keep `blog/post/core/post.clj`, `core/ui.clj`, `schema.clj`, `shared/ui/layout.clj`; slim `post/ports.clj` + `post/shell/persistence.clj`; rewrite `post/shell/http.clj`; keep `test/.../post_test.clj`.
 
-- [ ] **Step 1: Remove platform HTTP keys** — in `src/boundary/config.clj` `ig-config`, delete the `:boundary/http-handler` and `:boundary/http-server` entries from the returned Integrant map. Leave `:boundary/user-routes`, `:boundary/admin-routes`, `:boundary/router`, `:boundary/db-context`, etc. intact.
-
-- [ ] **Step 2: Port `normalized->reitit`** — copy the `normalized->reitit` helper and the route-assembly logic from `ecommerce-api/src/ecommerce/system.clj:163-231` into `blog-app/src/blog/system.clj`, adapting namespaces. It converts boundary normalized web routes → reitit vectors under base paths `/web` (user) and `/web/admin` (admin).
-
-- [ ] **Step 3: Define `:blog/http-server`** — add a `defmethod ig/init-key :blog/http-server` in `blog/system.clj` that:
-  - builds a reitit ring-handler from: public routes (`GET /` home, `GET /posts/:slug` detail — from the public post module, Task 5) + converted `/web` user routes + `/web/admin` admin routes;
-  - applies the middleware stack (session, params, cookies, ui-style static resources, method-override if admin forms need it — reuse the app-owned `wrap-method-override` pattern from ecommerce, exception handler);
-  - starts Jetty on `:boundary/http` port; add `ig/halt-key!` to stop it.
-  Model the whole thing on `ecommerce-api/src/ecommerce/system.clj` `:ecommerce/http-server` (`:188`+).
-
-- [ ] **Step 4: Wire it** — in `src/boundary/config.clj` `ig-config`, add the `:blog/http-server` entry with `ig/ref`s to `:boundary/user-routes`, `:boundary/admin-routes`, the public post handlers, `:boundary/db-context`, config. Ensure `blog/system.clj` is required so its defmethods load (the scaffold already requires the app system ns — verify).
-
-- [ ] **Step 5: Commit** (compiles; full boot verified in Task 8)
-```bash
-git add blog-app/src && git commit -m "feat(blog): custom :blog/http-server combining public HTMX + boundary /web routes"
-```
+- [ ] **Step 1: Confirm pure core compiles** — `core/post.clj`, `core/ui.clj`, `schema.clj`, `layout.clj` need no framework coupling; adjust only if they referenced the old system/config.
+- [ ] **Step 2: Read-only repository** — trim `post/ports.clj` to `IPostRepository` with `find-post-by-slug` + `list-published-posts` only. Slim `post/shell/persistence.clj` to those two SELECTs; `defrecord SQLitePostRepository [datasource]` taking a plain datasource (mirror ecommerce's `product/shell/persistence.clj` record shape). Drop all write ops.
+- [ ] **Step 3: Public handlers call the repository directly (no service layer)** — rewrite `post/shell/http.clj` to expose `home-handler` (list published) + `post-handler` (by slug), each taking the repository, rendering via `core/ui` + `layout`. Return 404 (not 500) for an unknown slug. Remove login/dashboard/create/edit/delete handlers and any `IPostService` usage. Export a `routes` fn returning reitit route vectors given the repository.
+- [ ] **Step 4: Tests** — `cd blog-app && clojure -M:test 2>&1 | tail -5`. The ported `post_test.clj` (pure core) passes. Fix only genuine signature drift; keep tests meaningful (superpowers:test-driven-development for any new behavior).
+- [ ] **Step 5: Commit** `git add blog-app/src blog-app/test && git commit -m "feat(blog): port public post read module (core reused, read-only repo, HTMX views)"`.
 
 ---
 
-## Task 5: Port the public post read module
+## Task 5: Custom `:blog/post-repository` + `:blog/http-server` wiring
 
-**Files:** `blog-app/src/blog/post/core/post.clj` (keep), `.../core/ui.clj` (keep/tweak), `.../shared/ui/layout.clj` (keep), `.../post/ports.clj` (trim), `.../post/shell/persistence.clj` (slim read-only), `.../post/shell/http.clj` (public handlers), `test/blog/post/core/post_test.clj` (keep passing).
+**Files:** `blog-app/src/boundary/config.clj` (remove platform HTTP keys, add blog keys), `blog-app/src/blog/system.clj` (init-keys + `normalized->reitit`).
 
-- [ ] **Step 1: Confirm pure core still compiles** — `core/post.clj`, `core/ui.clj`, `schema.clj`, `layout.clj` need no framework coupling. Adjust only if they referenced the old system/config.
-
-- [ ] **Step 2: Slim the read repository** — reduce `post/ports.clj` to read ops (`find-post-by-slug`, `list-published-posts`) and `post/shell/persistence.clj` to those SELECTs, built on the platform db-context datasource. Get the datasource from the injected `:boundary/db-context` via `(:datasource ctx)` (confirmed shape `{:adapter … :datasource …}` in platform `factory.clj`). Drop `save-post!`/`delete-post!`/`update`.
-
-- [ ] **Step 3: Public HTTP handlers** — rewrite `post/shell/http.clj` to expose only `home-handler` (list published) and `post-handler` (by slug), rendering via `core/ui` + `layout`. Remove login/dashboard/create/edit/delete handlers. Export a routes fn returning reitit route vectors (consumed by `:blog/http-server`).
-
-- [ ] **Step 4: Run the pure-core tests**
-```bash
-cd blog-app && clojure -M:test 2>&1 | tail -5
-```
-Expected: the ported `post_test.clj` passes. Fix ports/persistence signature drift if the tests touch them (keep tests meaningful; use superpowers:test-driven-development for any new behavior).
-
-- [ ] **Step 5: Commit**
-```bash
-git add blog-app/src blog-app/test && git commit -m "feat(blog): port public post read module (core reused, read-only persistence, HTMX views)"
-```
+- [ ] **Step 1: Remove platform HTTP keys** — in `src/boundary/config.clj` `ig-config`, delete the `:boundary/http-handler` and `:boundary/http-server` entries from the returned map. Keep `:boundary/user-routes`, `:boundary/admin-routes`, `:boundary/router`, `:boundary/db-context`.
+- [ ] **Step 2: Add `:blog/post-repository`** — in `src/boundary/config.clj` `ig-config`, add `:blog/post-repository {:db-context (ig/ref :boundary/db-context)}`. In `blog/system.clj`, `defmethod ig/init-key :blog/post-repository` that extracts `(:datasource db-context)` and returns a `SQLitePostRepository`.
+- [ ] **Step 3: Port `normalized->reitit`** — copy the `normalized->reitit` helper (`ecommerce/system.clj:162-186`) and the web/admin route-assembly (`:188-253` region) into `blog/system.clj`, adapting namespaces; base paths `/web` (user), `/web/admin` (admin).
+- [ ] **Step 4: Add `:blog/http-server`** — `defmethod ig/init-key :blog/http-server` (+ `halt-key!`) building a reitit ring-handler from: public post routes (Task 4 `routes` fn, given `:blog/post-repository`) + converted `/web` user routes + `/web/admin` admin routes; middleware stack per ecommerce (`wrap-method-override` app-owned copy if admin forms need it, params, cookies, session, ui-style static resources, exception handler); start Jetty on `:boundary/http` port. Model on `ecommerce/system.clj` `:ecommerce/http-server`.
+- [ ] **Step 5: Wire it** — in `ig-config`, add `:blog/http-server` with `ig/ref`s to `:blog/post-repository`, `:boundary/user-routes`, `:boundary/admin-routes`, config. Ensure `blog/system.clj` is required so its defmethods load (scaffold requires the app system ns — verify).
+- [ ] **Step 6: Compile check** — `cd blog-app && clojure -Spath > /dev/null && echo OK` (all namespaces load).
+- [ ] **Step 7: Commit** `git add blog-app/src && git commit -m "feat(blog): :blog/post-repository + :blog/http-server (public HTMX + boundary /web routes)"`.
 
 ---
 
 ## Task 6: Posts admin auto-CRUD entity
 
-**Files:** `blog-app/resources/conf/admin/posts.edn` (create), `blog-app/resources/conf/dev/config.edn` (+ test) `:boundary/admin`.
+**Files:** `blog-app/resources/conf/admin/posts.edn` (create), `resources/conf/dev/config.edn` (+ test) `:boundary/admin`.
 
-- [ ] **Step 1: Entity config** — create `resources/conf/admin/posts.edn` (wrap under the entity key, like `ecommerce-api/resources/conf/admin/products.edn`):
+- [ ] **Step 1: Entity config** — create `resources/conf/admin/posts.edn` (wrap under entity key, like `ecommerce/.../products.edn`):
 ```clojure
 {:posts
  {:label           "Posts"
@@ -176,16 +141,16 @@ git add blog-app/src blog-app/test && git commit -m "feat(blog): port public pos
   :hide-fields     #{:author-id}
   :readonly-fields #{:id :author-id :created-at :updated-at}
   :fields
-  {:title     {:type :string  :label "Title" :required true}
-   :slug      {:type :string  :label "Slug"}
-   :content   {:type :text    :label "Content" :widget :textarea}
-   :excerpt   {:type :text    :label "Excerpt" :widget :textarea}
-   :published {:type :boolean :label "Published" :filterable true}}
+  {:title        {:type :string   :label "Title" :required true}
+   :slug         {:type :string   :label "Slug"}
+   :content      {:type :text     :label "Content" :widget :textarea}
+   :excerpt      {:type :text     :label "Excerpt" :widget :textarea}
+   :published    {:type :boolean  :label "Published" :filterable true}
+   :published-at {:type :datetime :label "Published at"}}
   :default-sort     :created-at
   :default-sort-dir :desc}}
 ```
-
-- [ ] **Step 2: Wire admin** — in `resources/conf/dev/config.edn` `:active`, add/adjust `:boundary/admin` (mirror ecommerce):
+- [ ] **Step 2: Wire admin** — in `resources/conf/dev/config.edn` `:active` (mirror ecommerce):
 ```clojure
 :boundary/admin
 {:enabled?         true
@@ -195,71 +160,49 @@ git add blog-app/src blog-app/test && git commit -m "feat(blog): port public pos
  :entities         #merge [#include "../admin/posts.edn"]
  :pagination       {:default-page-size 20 :max-page-size 200}}
 ```
-Add the same (minimal) to `test/config.edn` if tests need admin.
-
-- [ ] **Step 3: Verify introspection** — boot (Task 8) then load `/web/admin`; confirm the Posts entity lists + the create/edit form renders without a phantom `authors` relation. If the `author_id` FK relation still appears, add a relationship override in `posts.edn` to disable/redirect it (see spec FK caveat).
-
-- [ ] **Step 4: Commit**
-```bash
-git add blog-app/resources/conf && git commit -m "feat(blog): posts admin auto-CRUD entity config"
-```
+- [ ] **Step 3: Commit** `git add blog-app/resources/conf && git commit -m "feat(blog): posts admin auto-CRUD entity config"`.
+- [ ] **Step 4:** (verification of introspection/FK happens in Task 8 once booted.)
 
 ---
 
 ## Task 7: Boot-smoke harness
 
-**Files:** `blog-app/dev/smoke.clj` (create), `blog-app/deps.edn` (`:smoke` alias).
+**Files:** `blog-app/dev/smoke.clj`, `blog-app/deps.edn` (`:smoke` alias).
 
-- [ ] **Step 1: Copy ecommerce's harness** — create `blog-app/dev/smoke.clj` identical to `ecommerce-api/dev/smoke.clj` but requiring `blog.system` (or whichever ns exposes `start!`/`stop!`). If the scaffold uses `integrant.repl`/`boundary.config` instead of a `system/start!`, write the harness to call the scaffold's start path (inspect `dev/user.clj`).
-
-- [ ] **Step 2: Add `:smoke` alias** to `blog-app/deps.edn` (`{:extra-paths ["dev"] :main-opts ["-m" "smoke"]}`).
-
-- [ ] **Step 3: Commit**
-```bash
-git add blog-app/dev/smoke.clj blog-app/deps.edn && git commit -m "test(blog): add boot-smoke harness"
-```
+- [ ] **Step 1: Harness** — inspect `blog/dev/user.clj` for the scaffold's start path. Create `blog-app/dev/smoke.clj` that starts the full system (via the scaffold's `boundary.config`/integrant start, or a `blog.system/start!` if present) and stops it, catching `Throwable`, printing `BOOT SMOKE PASSED` / `BOOT FAILED`, exiting 0/1 (model on `ecommerce-api/dev/smoke.clj`).
+- [ ] **Step 2: Alias** — add `:smoke {:extra-paths ["dev"] :main-opts ["-m" "smoke"]}` to `blog-app/deps.edn`.
+- [ ] **Step 3: Commit** `git add blog-app/dev/smoke.clj blog-app/deps.edn && git commit -m "test(blog): add boot-smoke harness"`.
 
 ---
 
 ## Task 8: Full verification + admin seed
 
-**Files:** none (verification); may add repo-root `bb.edn` `run-blog` + `create-admin` convenience.
+**Files:** none (verification); optionally repo-root `bb.edn` `run-blog`.
 
-- [ ] **Step 1: Boot smoke**
+- [ ] **Step 1: Boot smoke** — `cd blog-app && JWT_SECRET=dev-secret-change-me-min-32-characters clojure -M:smoke`. Expect `BOOT SMOKE PASSED`, components incl. `:boundary/user-*`, `:boundary/admin-*`, `:blog/post-repository`, `:blog/http-server`. Fix wiring (missing init-key/dangling ref) before proceeding.
+- [ ] **Step 2: Seed admin** (from inside `blog-app/`; needs the Task 3 db-spec patch):
 ```bash
-cd blog-app && JWT_SECRET=dev-secret-change-me-min-32-characters clojure -M:smoke
+cd blog-app && JWT_SECRET=dev-secret-change-me-min-32-characters bb create-admin --env dev --email admin@example.com --name "Author"
 ```
-Expected: `BOOT SMOKE PASSED`, exit 0, components include `:boundary/user-*`, `:boundary/admin-*`, `:blog/http-server`. Fix wiring issues (missing init-key, dangling ref) before proceeding.
-
-- [ ] **Step 2: Seed an admin user** — run the create-admin flow (confirm the `db-spec` sqlite patch from Task 3 makes it work):
+Expect an admin user created, no `db-spec` throw.
+- [ ] **Step 3: Live routes** — start (`cd blog-app && JWT_SECRET=… clojure -M:run` or add a `bb run-blog` task with `:extra-env`):
 ```bash
-JWT_SECRET=dev-secret-change-me-min-32-characters bb create-admin --dir blog-app --env dev --email admin@example.com --name "Author"
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/                       # 200
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/posts/does-not-exist    # 404
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/web/admin               # 302/401/403, not 500
 ```
-(If the root `bb create-admin` task is ecommerce-specific, add a blog equivalent or run the app's `:user-cli` alias directly.) Expected: admin user created, no `db-spec` throw.
-
-- [ ] **Step 3: Live routes** — start server (`JWT_SECRET=… clojure -M:run` or a `bb run-blog` task with `:extra-env`), then:
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/            # home → 200
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/posts/does-not-exist  # → 404 (not 500)
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/web/admin   # → 302/401/403 (not 500)
-```
-Insert a published post via `/web/admin` (after login) or a SQL insert, then confirm `/` lists it and `/posts/:slug` renders. Confirm ui-style CSS loads.
-
-- [ ] **Step 4: Tests** — `clojure -M:test` green.
-
-- [ ] **Step 5: Commit** any convenience tasks
-```bash
-git add bb.edn && git commit -m "chore(blog): add run-blog/create-admin convenience tasks"
-```
+Log in at `/web/login`, open `/web/admin`, confirm the **Posts** entity lists + create/edit form renders with **no phantom `authors` relation** (if it appears, add a relationship override in `posts.edn` per spec). Create a published post; confirm `/` lists it and `/posts/:slug` renders; ui-style CSS loads.
+- [ ] **Step 4: Tests** — `cd blog-app && clojure -M:test` green.
+- [ ] **Step 5: Commit** any convenience task `git add bb.edn && git commit -m "chore(blog): add run-blog convenience task"`.
 
 ---
 
 ## Done criteria
 
 - `blog-app/` runs on Boundary `1.0.0-beta-1` (deps pinned, resolves).
-- `clojure -M:smoke` passes with `JWT_SECRET`; boots `:blog/http-server` + boundary user/admin.
-- `bb migrate` creates posts/comments; `bb create-admin` works (sqlite db-spec patched).
-- Public `/` + `/posts/:slug` render (custom HTMX); `/web/admin` posts CRUD works after login; ui-style loads.
+- `clojure -M:smoke` passes with `JWT_SECRET`; boots `:blog/post-repository` + `:blog/http-server` + boundary user/admin.
+- `bb migrate` (migratus) creates `posts`/`comments`; `bb create-admin` works (db-spec patched).
+- Public `/` + `/posts/:slug` render (custom HTMX, 200/404); `/web/admin` posts CRUD works after login; ui-style loads.
 - `clojure -M:test` green (pure-core post tests ported).
 - Comments table exists, unimplemented (deferred, documented).
 
@@ -267,4 +210,4 @@ git add bb.edn && git commit -m "chore(blog): add run-blog/create-admin convenie
 
 - Comments feature (public + admin).
 - Sub-project 3: notification-service (own spec + plan).
-- Update root `CLAUDE.md` blog-app row if its description drifts (blog now uses Boundary).
+- Update root `CLAUDE.md` blog-app row (blog now uses Boundary).
