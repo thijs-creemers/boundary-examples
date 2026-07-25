@@ -69,11 +69,11 @@ In `deps.edn`, inside `:aliases`, add:
    :main-opts   ["-m" "smoke"]}
 ```
 
-- [ ] **Step 3: Run smoke on the CURRENT (alpha-13) app — expect PASS**
+- [x] **Step 3: Run smoke on the CURRENT (alpha-13) app — DEVIATION: baseline not achievable**
 
 Run: `clojure -M:smoke`
-Expected: prints `[smoke] BOOT SMOKE PASSED`, exit 0. (alpha-13 has no JWT guard, so no secret needed.)
-If it fails here, STOP — the harness or app is broken independent of the upgrade; fix before proceeding.
+Actual (alpha-13): **boot FAILS** — `Could not locate boundary/i18n/shell/middleware…` — `boundary-admin` alpha-13 requires `boundary.i18n.shell.middleware` but its POM does not declare `boundary-i18n` (undeclared transitive dep; `boundary-i18n` is not in the app's alpha-13 deps). `clojure -M:run` fails identically → pre-existing alpha-13 defect, NOT a harness bug.
+Resolution: this is exactly the undeclared-transitive class beta-1 fixes (CHANGELOG BOU-196). Verified: the beta-1 `boundary-admin` POM **declares** `boundary-i18n` and `boundary-i18n:1.0.0-beta-1` is in `~/.m2`, so the require resolves after Task 2's bump. The alpha-13 green baseline is therefore skipped by design; the harness is instead validated on beta-1 at Task 5 (green boot). Harness code is verbatim from the reviewed plan.
 
 - [ ] **Step 4: Commit**
 
