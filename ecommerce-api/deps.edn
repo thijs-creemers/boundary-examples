@@ -74,4 +74,8 @@
    :jvm-opts  ["-Denv=dev"]}
 
   :db
-  {:extra-deps {org.xerial/sqlite-jdbc {:mvn/version "3.53.0.0"}}}}}
+  {:extra-deps {org.xerial/sqlite-jdbc {:mvn/version "3.53.0.0"}}}
+
+  :smoke
+  {:extra-paths ["dev"]
+   :main-opts   ["-m" "smoke"]}}}
