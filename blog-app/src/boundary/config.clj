@@ -59,6 +59,11 @@
        :password (get-in active [:boundary/postgresql :password])
        :pool     (get-in active [:boundary/postgresql :pool])}
 
+      (:boundary/sqlite active)
+      {:adapter       :sqlite
+       :database-path (get-in active [:boundary/sqlite :db])
+       :pool          (get-in active [:boundary/sqlite :pool])}
+
       :else (throw (ex-info "No active database adapter in config"
                             {:active-keys (keys active)})))))
 
@@ -121,44 +126,44 @@
                            search?   (assoc :search-routes      (ig/ref :boundary/search-routes)))]
 
     (cond->
-      {:boundary/settings        (:boundary/settings active)
-       :boundary/db-context      db
-       :boundary/logging         (get active :boundary/logging {:provider :no-op})
-       :boundary/metrics         (get active :boundary/metrics {:provider :no-op})
-       :boundary/error-reporting (get active :boundary/error-reporting {:provider :no-op})
-       :boundary/router          router
-       :boundary/i18n            i18n-cfg
+     {:boundary/settings        (:boundary/settings active)
+      :boundary/db-context      db
+      :boundary/logging         (get active :boundary/logging {:provider :no-op})
+      :boundary/metrics         (get active :boundary/metrics {:provider :no-op})
+      :boundary/error-reporting (get active :boundary/error-reporting {:provider :no-op})
+      :boundary/router          router
+      :boundary/i18n            i18n-cfg
 
        ;; User module (always wired)
-       :boundary/user-db-schema     {:ctx (ig/ref :boundary/db-context)}
-       :boundary/user-repository    {:ctx (ig/ref :boundary/db-context)}
-       :boundary/session-repository {:ctx (ig/ref :boundary/db-context)}
-       :boundary/audit-repository   {:ctx              (ig/ref :boundary/db-context)
-                                     :pagination-config {:default-limit 20 :max-limit 100}}
-       :boundary/mfa-service        {:user-repository (ig/ref :boundary/user-repository)
-                                     :mfa-config      {}}
-       :boundary/auth-service       {:user-repository    (ig/ref :boundary/user-repository)
-                                     :session-repository (ig/ref :boundary/session-repository)
-                                     :mfa-service        (ig/ref :boundary/mfa-service)
-                                     :auth-config        {}}
-       :boundary/user-service       (cond-> {:user-repository    (ig/ref :boundary/user-repository)
-                                             :session-repository (ig/ref :boundary/session-repository)
-                                             :audit-repository   (ig/ref :boundary/audit-repository)
-                                             :validation-config  val-cfg
-                                             :auth-service       (ig/ref :boundary/auth-service)
-                                             :logger             (ig/ref :boundary/logging)
-                                             :metrics            (ig/ref :boundary/metrics)
-                                             :error-reporter     (ig/ref :boundary/error-reporting)}
-                                      cache? (assoc :cache (ig/ref :boundary/cache)))
-       :boundary/user-routes        {:user-service (ig/ref :boundary/user-service)
-                                     :mfa-service  (ig/ref :boundary/mfa-service)
-                                     :config       config}
+      :boundary/user-db-schema     {:ctx (ig/ref :boundary/db-context)}
+      :boundary/user-repository    {:ctx (ig/ref :boundary/db-context)}
+      :boundary/session-repository {:ctx (ig/ref :boundary/db-context)}
+      :boundary/audit-repository   {:ctx              (ig/ref :boundary/db-context)
+                                    :pagination-config {:default-limit 20 :max-limit 100}}
+      :boundary/mfa-service        {:user-repository (ig/ref :boundary/user-repository)
+                                    :mfa-config      {}}
+      :boundary/auth-service       {:user-repository    (ig/ref :boundary/user-repository)
+                                    :session-repository (ig/ref :boundary/session-repository)
+                                    :mfa-service        (ig/ref :boundary/mfa-service)
+                                    :auth-config        {}}
+      :boundary/user-service       (cond-> {:user-repository    (ig/ref :boundary/user-repository)
+                                            :session-repository (ig/ref :boundary/session-repository)
+                                            :audit-repository   (ig/ref :boundary/audit-repository)
+                                            :validation-config  val-cfg
+                                            :auth-service       (ig/ref :boundary/auth-service)
+                                            :logger             (ig/ref :boundary/logging)
+                                            :metrics            (ig/ref :boundary/metrics)
+                                            :error-reporter     (ig/ref :boundary/error-reporting)}
+                                     cache? (assoc :cache (ig/ref :boundary/cache)))
+      :boundary/user-routes        {:user-service (ig/ref :boundary/user-service)
+                                    :mfa-service  (ig/ref :boundary/mfa-service)
+                                    :config       config}
 
        ;; HTTP layer (always wired; optional module refs injected above)
-       :boundary/http-handler http-handler-cfg
-       :boundary/http-server  (merge http-cfg
-                                     {:handler (ig/ref :boundary/http-handler)
-                                      :config  http-cfg})}
+      :boundary/http-handler http-handler-cfg
+      :boundary/http-server  (merge http-cfg
+                                    {:handler (ig/ref :boundary/http-handler)
+                                     :config  http-cfg})}
 
       ;; Cache module — enabled by `boundary add cache`
       cache?
