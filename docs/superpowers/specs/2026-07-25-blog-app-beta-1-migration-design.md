@@ -20,17 +20,36 @@ ported in. `ecommerce-api`'s in-place pattern is the reference for framework wir
 
 The installed `boundary` CLI is `1.0.1-alpha-20` (m2 has no beta-1 `boundary-cli`); its
 catalogue emits alpha versions. So after `boundary new` / `boundary add`, **bump the
-generated `deps.edn` to `1.0.0-beta-1`** (mechanical — reuse `bb bump-boundary`, whose
-regex now matches alpha|beta). All beta-1 artifacts are already in `~/.m2`.
+generated `deps.edn` to `1.0.0-beta-1`**. All beta-1 artifacts are already in `~/.m2`.
+NOTE: the root `bb bump-boundary` task currently rewrites **only** `ecommerce-api/deps.edn`
+(`bb.edn:13`). Before relying on it, **extend that task's file list to include
+`blog-app/deps.edn`** (and later `notification-service/deps.edn`); otherwise bump
+blog-app's `deps.edn` by hand.
+
+### Scaffold command + directory naming
+
+There is **no `--base-ns` flag** — the CLI (`boundary-cli/src/boundary/cli/new.clj:123-127`)
+accepts only `--force` / `--skip-git`, and derives the namespace from the project name
+(`name->ns`: `-`→`_`). So `boundary new blog` → directory `blog/`, namespace `blog`
+(matching the existing ported `blog.*` core code). Since the mono-repo keeps the app in
+`blog-app/`, scaffold to a temp `blog/` then **relocate the generated files into
+`blog-app/`** (keeping the repo's `blog-app/` directory name but the `blog` namespace).
+Do NOT run `boundary new blog-app` (that would force namespace `blog_app` and require
+rewriting every `ns` form).
 
 ## Key facts (verified against beta-1 source)
 
-- `boundary new blog-app --base-ns blog` → app namespace `blog` (the `--base-ns` flag
-  parameterizes it; without it the ns would be `blog_app`). Generates: `deps.edn` (full
-  module closure), `src/boundary/config.clj` (Aero `load-config` + `ig-config` with
-  conditional `module-wiring` requires driven by `:active`), `src/blog/system.clj` (app
+- `boundary new blog` → app namespace `blog` (see "Scaffold command" above; no
+  `--base-ns` flag exists). Generates: `deps.edn` (full module closure),
+  `src/boundary/config.clj` (Aero `load-config` + `ig-config` with conditional
+  `module-wiring` requires driven by `:active`), `src/blog/system.clj` (app
   `ig/init-key`s), `resources/conf/{dev,test}/config.edn`, `.env` (auto-generated
-  `JWT_SECRET`), `bb.edn` (incl. `migrate` task), `dev/user.clj`.
+  `JWT_SECRET`), `bb.edn` (incl. `migrate` task — confirmed present), `dev/user.clj`.
+- **Generated `src/boundary/config.clj` `db-spec` handles only `:boundary/h2` and
+  `:boundary/postgresql`, else throws** (`config.clj.tmpl:48-67`). For SQLite it must be
+  patched to add a `:boundary/sqlite` branch (see DB section). `bb migrate` uses a
+  different path (`database/config.clj` handles `:boundary/sqlite`) and is fine; but
+  `bb create-admin` → `boundary.config/db-spec` will throw for SQLite until patched.
 - `boundary add admin` / `ui-style` patch `deps.edn` + inject config snippets into
   `:active`. `user` + `platform` + `observability` + `core` are always present (core-4).
 - **Admin auto-CRUD requires pre-existing tables** — it introspects DB schema + merges
@@ -45,28 +64,49 @@ regex now matches alpha|beta). All beta-1 artifacts are already in `~/.m2`.
 
 ## Architecture
 
-### Routing — custom handler (ecommerce-proven)
+### Routing — custom http-server key (ecommerce-proven), NOT a defmethod override
 
-`blog.system` **overrides `:boundary/http-handler`** to build the app's own reitit router
-that combines:
+Follow ecommerce exactly: it does **not** redefine the platform's
+`(defmethod ig/init-key :boundary/http-handler …)`. Instead it registers its **own**
+init-key (`:ecommerce/http-server`, `ecommerce/system.clj:188`) that assembles the router
+and Jetty independently, and it simply **does not include `:boundary/http-handler` /
+`:boundary/http-server` in its Integrant config map**.
+
+For blog: in `src/boundary/config.clj`'s `ig-config`, **remove the `:boundary/http-handler`
+and `:boundary/http-server` entries** and add a custom `:blog/http-server` entry
+(defmethod in `blog/system.clj`) that builds a reitit router combining:
 - **Public HTMX routes** (custom, unauthenticated): `GET /` (published post list),
   `GET /posts/:slug` (post detail).
-- **Boundary normalized routes** under `/web`: user auth (`/web/login`, sessions) and
-  admin CRUD (`/web/admin/...`), converted normalized→reitit exactly as ecommerce does
-  (`ecommerce/system.clj` route-assembly is the template).
+- **Boundary normalized routes** under `/web`: user auth and admin CRUD, converted
+  normalized→reitit. **Copy/adapt** the `normalized->reitit` helper + base-path prefixing
+  (`/web`, `/web/admin`) from `ecommerce/system.clj:163-231` into `blog/system.clj`.
 
-This is the same approach `ecommerce-api` uses (it builds its own router rather than the
-platform handler). It sidesteps the `/`-hijack and the missing app-route seam. The rest
-of the scaffold (config.clj, db-context, user/admin/ui-style wiring, JWT) is used as
-generated.
+Do **not** add a competing `defmethod ig/init-key :boundary/http-handler` — that relies on
+load-order shadowing and is fragile. This sidesteps the platform handler's `/`-hijack
+(redirect to `/web/users`) and its missing app-route seam. Everything else in the scaffold
+(config.clj, db-context, user/admin/ui-style wiring, JWT) is used as generated.
 
 ### Database — SQLite (parity)
 
-Use the SQLite adapter (blog-app is a SQLite example; matches ecommerce's
-`:db-context {:adapter :sqlite ...}` + `:boundary/sqlite`). Override the scaffold's
-default `:boundary/h2` dev config with SQLite. Port the existing migrations:
-`001-create-posts.sql`, `002-create-comments.sql` into the platform migration flow
-(`migrations/` + `bb migrate`). Comments table is created but unused (deferred).
+Use the SQLite adapter (blog-app is a SQLite example). Required post-scaffold edits:
+1. **`config.edn` `:active`** must have BOTH (mirroring ecommerce):
+   - `:boundary/db-context {:adapter :sqlite :database-path "blog-dev.db"}` — used by the
+     running app (platform `:boundary/db-context` init-key).
+   - `:boundary/sqlite {:db "blog-dev.db" :pool {…}}` — used by CLI tools
+     (`bb migrate`, `bb create-admin`).
+   Remove the scaffold's default `:boundary/h2` block.
+2. **Patch `src/boundary/config.clj` `db-spec`** to add a `:boundary/sqlite` branch
+   (else `bb create-admin` throws — see Key facts):
+   ```clojure
+   (:boundary/sqlite active)
+   {:adapter :sqlite
+    :database-path (get-in active [:boundary/sqlite :db])
+    :pool          (get-in active [:boundary/sqlite :pool])}
+   ```
+   and ensure `ig-config`'s db-context mapping covers sqlite too.
+Port the existing migrations `001-create-posts.sql`, `002-create-comments.sql` into the
+platform migration flow (`migrations/` + `bb migrate`). Comments table is created but
+unused (deferred).
 
 ### Modules & responsibilities
 
@@ -99,9 +139,17 @@ Entity config mapping the `posts` table (id, author_id, title, slug, content, ex
 published, published_at, created_at, updated_at):
 - `:list-fields [:title :slug :published :published-at :created-at]`
 - `:search-fields [:title]`
-- `:readonly-fields #{:id :created-at :updated-at}` (slug can be readonly or editable)
+- `:readonly-fields #{:id :author-id :created-at :updated-at}` (include `:author-id` —
+  see FK note) `:hide-fields #{:author-id}` optional.
 - `:fields` — `:published` boolean, `:content`/`:excerpt` textarea widgets.
 Wire under `:boundary/admin :entity-discovery {:mode :allowlist :allowlist #{:posts}}`.
+
+**FK auto-detection caveat:** admin introspection (`schema_introspection.clj:718-744`,
+`detect-foreign-keys`) treats any `*_id` column as a foreign key and pluralizes —
+`author_id` → a `:belongs-to {:entity :authors}` relation to a non-existent `authors`
+table. Suppress it: mark `:author-id` readonly/hidden and, if the detected relation still
+surfaces, add an explicit relationship override in `posts.edn` to disable it (or point it
+at the users entity). Verify in the admin UI during implementation.
 
 ### Auth model
 
@@ -112,10 +160,13 @@ Wire under `:boundary/admin :entity-discovery {:mode :allowlist :allowlist #{:po
 
 ## Verification loop
 
+Create the boot-smoke harness as an **explicit deliverable** (copy ecommerce's
+`dev/smoke.clj` + `:smoke` alias, adapted to `blog.system`) — not an afterthought.
+
 ```bash
-# JWT_SECRET must be set (fail-fast at boot). Use bb run task w/ dev secret.
+# JWT_SECRET must be set (fail-fast at boot). Use a bb run task w/ dev secret.
 bb migrate            # create posts/comments tables (SQLite)
-clojure -M:smoke      # (add smoke harness like ecommerce) — system boots green
+clojure -M:smoke      # system boots green (custom :blog/http-server)
 clojure -M:test       # ported pure-core post tests pass
 ```
 Manual: `/` lists published posts; `/posts/:slug` renders; `/web/admin` posts CRUD works
