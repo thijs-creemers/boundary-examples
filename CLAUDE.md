@@ -103,10 +103,19 @@ Every module follows the same layout:
 
 ## ecommerce-api: Boundary Framework Libraries
 
-`ecommerce-api` uses the actual Boundary framework packages (from Clojars):
-- `boundary-admin` — admin UI with auth; transitively brings `boundary-user`, `boundary-core`, `hiccup`, `buddy-hashers/sign`
-- `boundary-platform` — transitively brings `next.jdbc`, `honeysql`, `HikariCP`, `reitit`, `muuntaja`, `integrant`, `aero`, `cheshire`
+`ecommerce-api` uses the actual Boundary framework packages (from Clojars),
+pinned at `1.0.0-beta-1`. Since beta-1 the published POMs declare their
+inter-Boundary dependencies, so `deps.edn` lists only the four modules whose
+namespaces the app requires directly and lets the rest resolve transitively:
+- `boundary-admin` — admin UI with auth; transitively brings `boundary-user`, `boundary-core`, `boundary-shared-ui`, `boundary-ui-style`, `boundary-i18n`, `hiccup`, `buddy-hashers/sign`
+- `boundary-platform` — transitively brings `boundary-cache`, `next.jdbc`, `honeysql`, `HikariCP`, `reitit`, `muuntaja`, `integrant`, `aero`, `cheshire`
 - `boundary-observability` — transitively brings `tools.logging`, `logback`
+- `boundary-user` — auth/JWT/MFA/session + user management (also required directly)
+
+> **Boot requirement:** beta-1's `boundary-user` fails fast at startup unless a
+> `JWT_SECRET` env var of ≥32 characters is set (read via `System/getenv`, not
+> config). Use `bb run-ecommerce` (injects a dev secret) or export it yourself;
+> see `ecommerce-api/.env.example`.
 
 ## Configuration
 

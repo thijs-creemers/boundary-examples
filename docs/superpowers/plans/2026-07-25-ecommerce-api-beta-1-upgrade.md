@@ -33,7 +33,7 @@
 - Create: `dev/smoke.clj`
 - Modify: `deps.edn` (add `:smoke` alias)
 
-- [ ] **Step 1: Write the smoke harness**
+- [x] **Step 1: Write the smoke harness**
 
 Create `dev/smoke.clj`:
 
@@ -59,7 +59,7 @@ Create `dev/smoke.clj`:
     (System/exit 0)))
 ```
 
-- [ ] **Step 2: Add the `:smoke` alias**
+- [x] **Step 2: Add the `:smoke` alias**
 
 In `deps.edn`, inside `:aliases`, add:
 
@@ -75,7 +75,7 @@ Run: `clojure -M:smoke`
 Actual (alpha-13): **boot FAILS** — `Could not locate boundary/i18n/shell/middleware…` — `boundary-admin` alpha-13 requires `boundary.i18n.shell.middleware` but its POM does not declare `boundary-i18n` (undeclared transitive dep; `boundary-i18n` is not in the app's alpha-13 deps). `clojure -M:run` fails identically → pre-existing alpha-13 defect, NOT a harness bug.
 Resolution: this is exactly the undeclared-transitive class beta-1 fixes (CHANGELOG BOU-196). Verified: the beta-1 `boundary-admin` POM **declares** `boundary-i18n` and `boundary-i18n:1.0.0-beta-1` is in `~/.m2`, so the require resolves after Task 2's bump. The alpha-13 green baseline is therefore skipped by design; the harness is instead validated on beta-1 at Task 5 (green boot). Harness code is verbatim from the reviewed plan.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add ecommerce-api/dev/smoke.clj ecommerce-api/deps.edn
@@ -89,24 +89,24 @@ git commit -m "test(ecommerce): add boot-smoke harness (baseline green on alpha-
 **Files:**
 - Modify: `deps.edn` (7 `org.boundary-app/*` version strings)
 
-- [ ] **Step 1: Bump via the repo task**
+- [x] **Step 1: Bump via the repo task**
 
 From repo root:
 Run: `bb bump-boundary 1.0.0-beta-1`
 Expected: prints `Bumped to 1.0.0-beta-1`.
 
-- [ ] **Step 2: Verify all 7 boundary deps are beta-1**
+- [x] **Step 2: Verify all 7 boundary deps are beta-1**
 
 Run: `grep -n "org.boundary-app" ecommerce-api/deps.edn`
 Expected: all 7 lines show `{:mvn/version "1.0.0-beta-1"}` (admin, platform, observability, core, user, cache, ui-style). No `alpha` remaining.
 
-- [ ] **Step 3: Resolve the classpath (confirm beta-1 artifacts fetch)**
+- [x] **Step 3: Resolve the classpath (confirm beta-1 artifacts fetch)**
 
 From `ecommerce-api/`:
 Run: `clojure -Spath -M:smoke > /dev/null && echo RESOLVED`
 Expected: `RESOLVED` (beta-1 already in `~/.m2`, so no network needed). If it errors on a missing artifact, that artifact isn't published at beta-1 — surface it.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add ecommerce-api/deps.edn
@@ -121,14 +121,14 @@ git commit -m "build(ecommerce): bump Boundary deps 1.0.1-alpha-13 -> 1.0.0-beta
 - Modify: `src/ecommerce/shared/http/middleware.clj` (add app-owned middleware)
 - Modify: `src/ecommerce/system.clj:37` (drop `admin-http` require), `:240` (use local middleware)
 
-- [ ] **Step 1: Audit every `boundary.*` var reference resolves under beta-1**
+- [x] **Step 1: Audit every `boundary.*` var reference resolves under beta-1**
 
 From `ecommerce-api/`:
 Run: `grep -rn "[a-z-]*/[a-z-]" src/ | grep -oE "(admin-http|db-factory|no-op-logging|no-op-errors)/[a-z!-]+" | sort -u`
 Expected list: `admin-http/wrap-method-override`, `db-factory/close-db-context!`, `db-factory/db-context`, `no-op-errors/create-error-reporting-component`, `no-op-logging/create-logging-component`.
 All except `admin-http/wrap-method-override` are confirmed present in beta-1 (see Key facts). Only the method-override needs replacing.
 
-- [ ] **Step 2: Add an app-owned `wrap-method-override` middleware**
+- [x] **Step 2: Add an app-owned `wrap-method-override` middleware**
 
 In `src/ecommerce/shared/http/middleware.clj`, add (ported from the platform inline pattern — reads the already-parsed `:form-params`/`:params`, so it must sit inside `wrap-params` in the stack, which it does):
 
@@ -149,18 +149,18 @@ In `src/ecommerce/shared/http/middleware.clj`, add (ported from the platform inl
 
 Ensure the ns `:require` includes `[clojure.string]` (or use an existing alias if present).
 
-- [ ] **Step 3: Point system.clj at the local middleware**
+- [x] **Step 3: Point system.clj at the local middleware**
 
 In `src/ecommerce/system.clj`:
 - Remove the require line `:37` `[boundary.admin.shell.http :as admin-http]` (and its comment `:36`).
 - Change line `:240` from `admin-http/wrap-method-override` to `middleware/wrap-method-override`.
 
-- [ ] **Step 4: Confirm no dangling `admin-http` references**
+- [x] **Step 4: Confirm no dangling `admin-http` references**
 
 Run: `grep -n "admin-http" src/ecommerce/system.clj`
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ecommerce-api/src/ecommerce/shared/http/middleware.clj ecommerce-api/src/ecommerce/system.clj
@@ -173,7 +173,7 @@ git commit -m "fix(ecommerce): replace removed admin-http/wrap-method-override w
 
 No file changes — this step proves the breaking change and drives Task 5.
 
-- [ ] **Step 1: Run smoke WITHOUT `JWT_SECRET` — expect FAIL**
+- [x] **Step 1: Run smoke WITHOUT `JWT_SECRET` — expect FAIL**
 
 From `ecommerce-api/`:
 Run: `unset JWT_SECRET; clojure -M:smoke`
@@ -190,7 +190,7 @@ This confirms beta-1's `validate-jwt-secret!` fires during `:boundary/auth-servi
 - Modify: `.gitignore` (ignore `.env`)
 - Modify: root `bb.edn` (add a `run-ecommerce` task that injects the dev secret) — optional convenience
 
-- [ ] **Step 1: Document the required secret**
+- [x] **Step 1: Document the required secret**
 
 Create `ecommerce-api/.env.example`:
 
@@ -200,7 +200,7 @@ Create `ecommerce-api/.env.example`:
 JWT_SECRET=dev-secret-change-me-min-32-characters
 ```
 
-- [ ] **Step 2: Ignore local `.env`**
+- [x] **Step 2: Ignore local `.env`**
 
 Append to `ecommerce-api/.gitignore` (create if absent):
 
@@ -208,13 +208,13 @@ Append to `ecommerce-api/.gitignore` (create if absent):
 .env
 ```
 
-- [ ] **Step 3: Run smoke WITH the secret — expect PASS**
+- [x] **Step 3: Run smoke WITH the secret — expect PASS**
 
 From `ecommerce-api/`:
 Run: `JWT_SECRET=dev-secret-change-me-min-32-characters clojure -M:smoke`
 Expected: `[smoke] BOOT SMOKE PASSED`, exit 0, and the component list includes the `:boundary/user-*` and `:boundary/admin-*` keys.
 
-- [ ] **Step 4: Add a convenience run task (repo root `bb.edn`)**
+- [x] **Step 4: Add a convenience run task (repo root `bb.edn`)**
 
 In root `bb.edn` `:tasks`, add:
 
@@ -227,7 +227,7 @@ In root `bb.edn` `:tasks`, add:
            "clojure" "-M:run")}
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ecommerce-api/.env.example ecommerce-api/.gitignore bb.edn
@@ -240,17 +240,17 @@ git commit -m "feat(ecommerce): supply dev JWT_SECRET; document env + run task"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Run the suite**
+- [x] **Step 1: Run the suite**
 
 From `ecommerce-api/`:
 Run: `clojure -M:test`
 Expected: all tests PASS. (Pure-core suite; no boot, no `JWT_SECRET` needed. authz-403 hardening does not affect it.)
 
-- [ ] **Step 2: If any test fails**
+- [x] **Step 2: If any test fails**
 
 Read the failure. If it is a genuine beta-1 behavior change in pure core logic, use superpowers:systematic-debugging and superpowers:test-driven-development to fix. Do NOT weaken assertions to force green. Commit each fix separately.
 
-- [ ] **Step 3: Commit (only if fixes were made)**
+- [x] **Step 3: Commit (only if fixes were made)**
 
 ```bash
 git add -A ecommerce-api/
@@ -263,24 +263,24 @@ git commit -m "fix(ecommerce): adapt tests to Boundary 1.0.0-beta-1"
 
 **Files:** none (verification only). Confirms the running server serves public + admin surfaces on beta-1.
 
-- [ ] **Step 1: Start the server**
+- [x] **Step 1: Start the server**
 
 From repo root:
 Run: `bb run-ecommerce` (or from `ecommerce-api/`: `JWT_SECRET=dev-secret-change-me-min-32-characters clojure -M:run`)
 Expected: `E-commerce API running on http://localhost:3002`.
 
-- [ ] **Step 2: Hit a public API route**
+- [x] **Step 2: Hit a public API route**
 
 In another shell:
 Run: `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3002/api/products`
 Expected: `200`.
 
-- [ ] **Step 3: Hit the admin UI (unauthenticated)**
+- [x] **Step 3: Hit the admin UI (unauthenticated)**
 
 Run: `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3002/web/admin`
 Expected: a redirect/`302`/`401`/`403` (admin requires role) — NOT `500`. Any `500` means a beta-1 wiring regression; investigate.
 
-- [ ] **Step 4: Stop the server** (Ctrl-C) and note results.
+- [x] **Step 4: Stop the server** (Ctrl-C) and note results.
 
 No commit (verification only).
 
@@ -292,16 +292,16 @@ Only attempt if Tasks 1–7 are green. beta-1 POMs declare inter-Boundary deps, 
 
 **Files:** Modify `deps.edn`
 
-- [ ] **Step 1: Trim to directly-referenced modules**
+- [x] **Step 1: Trim to directly-referenced modules**
 
 Reduce the `org.boundary-app/*` block to the modules whose namespaces `src/` requires: `boundary-admin`, `boundary-platform`, `boundary-observability`, `boundary-user`. Remove `boundary-core`, `boundary-cache`, `boundary-ui-style` (let POMs resolve them). Keep the explanatory comments.
 
-- [ ] **Step 2: Re-run smoke**
+- [x] **Step 2: Re-run smoke**
 
 Run: `JWT_SECRET=dev-secret-change-me-min-32-characters clojure -M:smoke`
 Expected: `BOOT SMOKE PASSED`. If it fails on a missing namespace/class, RESTORE the removed dep(s) — the trim is not worth a boot failure.
 
-- [ ] **Step 3: Re-run tests + commit (only if green)**
+- [x] **Step 3: Re-run tests + commit (only if green)**
 
 Run: `clojure -M:test` → PASS.
 ```bash
