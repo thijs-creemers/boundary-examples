@@ -66,9 +66,14 @@ Confirm scaffold `.gitignore` lists `.env`; if not, add it.
 
 - [ ] **Step 1:** In repo-root `bb.edn`, change `bump-boundary`'s file vector `["ecommerce-api/deps.edn"]` → `["ecommerce-api/deps.edn" "blog-app/deps.edn"]`.
 - [ ] **Step 2:** `bb bump-boundary 1.0.0-beta-1` → `Bumped to 1.0.0-beta-1`.
-- [ ] **Step 3:** `grep -n org.boundary-app blog-app/deps.edn` → all beta-1, no `alpha`.
-- [ ] **Step 4:** `cd blog-app && clojure -Spath > /dev/null && echo RESOLVED`.
-- [ ] **Step 5: Commit** `git add blog-app/deps.edn bb.edn && git commit -m "build(blog): bump Boundary deps to 1.0.0-beta-1; add blog-app to bump task"`.
+- [ ] **Step 3: Add the SQLite JDBC driver to base `:deps`** — the scaffold puts only `com.h2database/h2` in base `:deps` and `org.xerial/sqlite-jdbc` only in the `:user-cli`/`:mcp` aliases. A SQLite blog needs the driver on EVERY classpath (the running app's `:boundary/db-context` and, critically, `bb migrate`'s `:migrate` alias which has no extra-deps). Add to `blog-app/deps.edn` base `:deps` (mirroring `ecommerce-api/deps.edn:24`):
+```clojure
+org.xerial/sqlite-jdbc {:mvn/version "3.53.0.0"}
+```
+(The `bump-boundary` regex won't touch this line.) Without this, Task 3's `bb migrate` throws `No suitable driver` / ClassNotFoundException before writing/running anything.
+- [ ] **Step 4:** `grep -n org.boundary-app blog-app/deps.edn` → all beta-1, no `alpha`; and `grep sqlite-jdbc blog-app/deps.edn` shows it in base `:deps`.
+- [ ] **Step 5:** `cd blog-app && clojure -Spath > /dev/null && echo RESOLVED`.
+- [ ] **Step 6: Commit** `git add blog-app/deps.edn bb.edn && git commit -m "build(blog): bump Boundary deps to 1.0.0-beta-1; add sqlite-jdbc + blog-app to bump task"`.
 
 ---
 
@@ -96,7 +101,7 @@ bb migrate create create-posts
 bb migrate create create-comments
 ```
 This creates correctly-named+located `{id}-create-posts.up.sql`/`.down.sql` (and comments) where migratus expects them. Confirm the path (`bb migrate status` or inspect the created files).
-- [ ] **Step 5: Fill the SQL** — paste the CREATE TABLE from the old `/tmp/blog-port/migrations/001-create-posts.sql` into the generated `*-create-posts.up.sql` (SQLite-compatible; drop any ragtime `--;;` separators — migratus uses `--;;` between statements, so keep multi-statement blocks separated by `--;;`). Add a matching `DROP TABLE posts;` in the `.down.sql`. Repeat for comments (`002-create-comments.sql` → up/down). Remove the old ragtime-style `001-`/`002-` files.
+- [ ] **Step 5: Fill the SQL** — paste the CREATE TABLE (+ indexes) from the old `/tmp/blog-port/migrations/001-create-posts.sql` into the generated `*-create-posts.up.sql`. The old file separates statements with plain `;`+newline; migratus separates statements with a `\n--;;\n` line, so **join the multiple statements (table + each index) with `--;;`** in the `.up.sql`. Add the reverse in `.down.sql` (`DROP TABLE posts;`). Repeat for comments (from `002-create-comments.sql`). Delete the old ragtime-style `001-create-posts.sql` / `002-create-comments.sql` files.
 - [ ] **Step 6: Run migrations** — from `blog-app/`: `bb migrate` then `bb migrate status`. Verify: `sqlite3 blog-app/blog-dev.db '.tables'` shows `posts` + `comments` (+ migratus `schema_migrations`). If tables are missing, the files weren't in the migratus dir/format — fix and re-run. (No `JWT_SECRET` needed for migration.)
 - [ ] **Step 7: Commit** `git add blog-app/resources/conf blog-app/src/boundary/config.clj blog-app/migrations && git commit -m "feat(blog): SQLite config + db-spec patch; posts/comments migratus migrations"`.
 
