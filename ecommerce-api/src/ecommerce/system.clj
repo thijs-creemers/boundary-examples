@@ -33,8 +33,6 @@
             [boundary.user.shell.module-wiring]
             ;; Boundary admin module — requires load ig/init-key multimethods
             [boundary.admin.shell.module-wiring]
-            ;; Boundary admin HTTP (for wrap-method-override)
-            [boundary.admin.shell.http :as admin-http]
             ;; Boundary platform db factory
             [boundary.platform.shell.adapters.database.factory :as db-factory]
             ;; Observability no-op adapters
@@ -237,7 +235,7 @@
                                                                  :description "REST API for the Boundary ecommerce example"
                                                                  :version "1.0.0"}}}})
         handler (-> (ring/ring-handler router (ring/create-default-handler))
-                    admin-http/wrap-method-override  ; reads :form-params for PUT/DELETE override
+                    middleware/wrap-method-override   ; reads :form-params for PUT/DELETE override
                     wrap-params                      ; parse form + query params
                     wrap-cookies                     ; parse cookies (for session auth)
                     middleware/wrap-json-body

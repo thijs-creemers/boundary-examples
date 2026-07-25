@@ -83,6 +83,23 @@
           (response/header "Access-Control-Allow-Origin" "*")))))
 
 ;; =============================================================================
+;; Method Override (HTML form PUT/DELETE support)
+;; =============================================================================
+
+(defn wrap-method-override
+  "On a POST carrying a `_method` form/query param, rewrite :request-method to
+   that verb (PUT/DELETE/PATCH) so HTML forms can drive non-POST routes.
+   Replaces boundary.admin.shell.http/wrap-method-override (removed in beta-1)."
+  [handler]
+  (fn [request]
+    (if (= :post (:request-method request))
+      (if-let [method (or (get-in request [:form-params "_method"])
+                          (get-in request [:params "_method"]))]
+        (handler (assoc request :request-method (keyword (str/lower-case method))))
+        (handler request))
+      (handler request))))
+
+;; =============================================================================
 ;; Request Logging
 ;; =============================================================================
 
