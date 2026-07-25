@@ -1,0 +1,15 @@
+{:posts
+ {:label           "Posts"
+  :list-fields     [:title :slug :published :published-at :created-at]
+  :search-fields   [:title]
+  :hide-fields     #{:author-id}
+  :readonly-fields #{:id :author-id :created-at :updated-at}
+  :fields
+  {:title        {:type :string   :label "Title" :required true}
+   :slug         {:type :string   :label "Slug"}
+   :content      {:type :text     :label "Content" :widget :textarea}
+   :excerpt      {:type :text     :label "Excerpt" :widget :textarea}
+   :published    {:type :boolean  :label "Published" :filterable true}
+   :published-at {:type :datetime :label "Published at"}}
+  :default-sort     :created-at
+  :default-sort-dir :desc}}
