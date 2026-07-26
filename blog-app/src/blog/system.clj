@@ -64,7 +64,9 @@
 (defmethod ig/init-key :blog/http-server
   [_ {:keys [post-repository user-routes admin-routes config]}]
   (let [http-cfg     (get-in config [:active :boundary/http] {:port 3001 :host "0.0.0.0" :join? false})
-        port         (:port http-cfg 3001)
+        raw-port     (:port http-cfg 3001)
+        ;; #env HTTP_PORT arrives as a string via Aero; Jetty's .setPort needs an int.
+        port         (if (string? raw-port) (Integer/parseInt raw-port) raw-port)
 
         ;; Public HTMX blog routes
         public-routes (post-http/routes post-repository)

@@ -128,7 +128,11 @@
 
 (defmethod ig/init-key :notification/http-server
   [_ {:keys [event-service notification-service config]}]
-  (let [port    (get-in config [:active :boundary/http :port] 3003)
+  (let [http-cfg (get-in config [:active :boundary/http] {:port 3003 :host "0.0.0.0" :join? false})
+        raw-port (:port http-cfg 3003)
+        ;; #env HTTP_PORT arrives as a string via Aero; Jetty's .setPort needs an int.
+        port     (if (string? raw-port) (Integer/parseInt raw-port) raw-port)
+        host     (:host http-cfg "0.0.0.0")
         routes  (concat
                  (event-http/routes event-service)
                  (notif-http/routes notification-service)
@@ -141,7 +145,7 @@
                     wrap-keyword-params
                     wrap-params
                     wrap-json-body)
-        server  (jetty/run-jetty handler {:port port :join? false})]
+        server  (jetty/run-jetty handler {:port port :host host :join? false})]
     (println (str "Starting notification HTTP server on port " port "..."))
     (println (str "Server running at http://localhost:" port))
     server))
