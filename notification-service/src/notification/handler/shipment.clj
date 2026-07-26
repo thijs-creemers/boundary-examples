@@ -2,7 +2,8 @@
   "Event handler for shipment-related events.
    
    Subscribes to shipment events and creates appropriate notifications."
-  (:require [notification.notification.ports :as notif-ports]))
+  (:require [notification.notification.ports :as notif-ports]
+            [notification.shared.bus :as msg-bus]))
 
 ;; =============================================================================
 ;; Shipment Event Handlers
@@ -56,11 +57,9 @@
 (defn register-handlers
   "Register shipment event handlers with the message bus."
   [bus notification-service]
-  (require '[notification.shared.bus :as msg-bus])
-  (let [subscribe! (resolve 'notification.shared.bus/subscribe!)]
-    (subscribe! bus :notification/shipping-update
-                (fn [event] (handle-shipment-sent notification-service event)))
-    (subscribe! bus :notification/delivery-confirmation
-                (fn [event] (handle-shipment-delivered notification-service event)))
-    (subscribe! bus :notification/return-received
-                (fn [event] (handle-shipment-returned notification-service event)))))
+  (msg-bus/subscribe! bus :notification/shipping-update
+                      (fn [event] (handle-shipment-sent notification-service event)))
+  (msg-bus/subscribe! bus :notification/delivery-confirmation
+                      (fn [event] (handle-shipment-delivered notification-service event)))
+  (msg-bus/subscribe! bus :notification/return-received
+                      (fn [event] (handle-shipment-returned notification-service event))))

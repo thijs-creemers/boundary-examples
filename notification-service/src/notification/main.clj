@@ -14,5 +14,8 @@
     (.addShutdownHook (Runtime/getRuntime)
                       (Thread. (fn []
                                  (println "\nShutting down…")
-                                 (ig/halt! system))))
+                                 (ig/halt! system)
+                                 ;; the core.async bus uses agent-pool threads;
+                                 ;; release them so the JVM exits promptly.
+                                 (shutdown-agents))))
     @(promise)))

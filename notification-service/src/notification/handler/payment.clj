@@ -2,7 +2,8 @@
   "Event handler for payment-related events.
    
    Subscribes to payment events and creates appropriate notifications."
-  (:require [notification.notification.ports :as notif-ports]))
+  (:require [notification.notification.ports :as notif-ports]
+            [notification.shared.bus :as msg-bus]))
 
 ;; =============================================================================
 ;; Payment Event Handlers
@@ -56,11 +57,9 @@
 (defn register-handlers
   "Register payment event handlers with the message bus."
   [bus notification-service]
-  (require '[notification.shared.bus :as msg-bus])
-  (let [subscribe! (resolve 'notification.shared.bus/subscribe!)]
-    (subscribe! bus :notification/payment-receipt
-                (fn [event] (handle-payment-received notification-service event)))
-    (subscribe! bus :notification/payment-failed
-                (fn [event] (handle-payment-failed notification-service event)))
-    (subscribe! bus :notification/refund-confirmation
-                (fn [event] (handle-payment-refunded notification-service event)))))
+  (msg-bus/subscribe! bus :notification/payment-receipt
+                      (fn [event] (handle-payment-received notification-service event)))
+  (msg-bus/subscribe! bus :notification/payment-failed
+                      (fn [event] (handle-payment-failed notification-service event)))
+  (msg-bus/subscribe! bus :notification/refund-confirmation
+                      (fn [event] (handle-payment-refunded notification-service event))))
