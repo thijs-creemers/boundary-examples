@@ -1,25 +1,29 @@
 {:paths ["src" "resources"]
- :deps  {org.boundary-app/boundary-core         {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-observability {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-platform      {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-user          {:mvn/version "1.0.1-alpha-20"}
+ :deps  {org.boundary-app/boundary-core         {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-observability {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-platform      {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-user          {:mvn/version "1.0.0-beta-1"}
          ;; Required by boundary-platform's system wiring (unconditional module loads)
-         org.boundary-app/boundary-cache         {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-admin         {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-ui-style      {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-tenant        {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-workflow      {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-search        {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-external      {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-payments      {:mvn/version "1.0.1-alpha-20"}
-         org.boundary-app/boundary-i18n          {:mvn/version "1.0.1-alpha-20"}
-         com.h2database/h2                       {:mvn/version "2.4.240"}}
+         org.boundary-app/boundary-cache         {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-admin         {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-ui-style      {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-tenant        {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-workflow      {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-search        {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-external      {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-payments      {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-i18n          {:mvn/version "1.0.0-beta-1"}
+         com.h2database/h2                       {:mvn/version "2.4.240"}
+         ;; SQLite driver — needed on every classpath (running app), user module DB.
+         org.xerial/sqlite-jdbc                  {:mvn/version "3.53.0.0"}
+         ;; core.async — the in-process event bus (shared/bus.clj) depends on it.
+         org.clojure/core.async                  {:mvn/version "1.9.865"}}
  :aliases
- {:repl     {:extra-paths ["dev"]
+ {:repl-clj {:extra-paths ["dev"]
              :extra-deps {nrepl/nrepl {:mvn/version "1.3.0"}
                           cider/cider-nrepl {:mvn/version "0.50.2"}}
              :main-opts  ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"
-                          "--port" "7888"]}
+                          "--port" "7891"]}
   :test     {:extra-paths ["test"]
              :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
              :main-opts   ["-m" "kaocha.runner"]}
