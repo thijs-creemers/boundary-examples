@@ -22,12 +22,17 @@ server-side event bus; the server-side-connection gap is tracked in **BOU-233**)
 
 ## Why user + a DB in a DB-less service
 
-boundary-platform's system wiring wires the user module (core-4) unconditionally
-(user-repository, session/audit repositories, auth-service, user-db-schema). The user
-module needs a relational DB. So this migration introduces a **SQLite** database purely
-to back the user module (tables auto-created by `:boundary/user-db-schema` at boot). The
-**domain stores stay in-memory** (event-store, notification-store) — no domain DB. This
-keeps the app a pure event/notification demo while satisfying platform+user.
+The **scaffold-generated `boundary.config`** wires the user component chain
+(user-repository, session/audit repositories, auth-service, user-db-schema) into its
+`ig-config` unconditionally — an app-level convention, NOT enforced by platform (platform
+is decoupled from user per BOU-171; a developer could strip user from `boundary.config`,
+but that deviates from the scaffold). Since we use the standard scaffold, user is present
+and needs a relational DB. So this migration introduces a **SQLite** database purely to
+back the user module — its tables are **auto-created at boot** by the
+`:boundary/user-db-schema` init-key (`initialize-user-schema!`), so **no `bb migrate` is
+needed**. The **domain stores stay in-memory** (event-store, notification-store) — no
+domain DB, no domain migrations. This keeps the app a pure event/notification demo while
+satisfying platform+user.
 
 ## Reuse of the blog-app playbook
 
@@ -49,7 +54,9 @@ blog-app):
 5. **Custom `:notification/http-server`** — platform `:boundary/http-handler` owns `/` and
    has no app-route seam; remove `:boundary/http-handler`/`:boundary/http-server` from
    `ig-config` and add a custom `:notification/http-server` (ecommerce/blog pattern)
-   mounting the REST API + health + boundary `/web` user routes.
+   mounting the REST API + health (NOT `/web` — API-only). Match blog's `config.clj`
+   handling of the scaffold's other component refs (metrics/email/etc.) — blog boots clean
+   with them, so follow it verbatim rather than re-deriving.
 6. **Run entry** — scaffold has no `:run`; add `notification.main` + `:run` alias +
    `bb run-notification` (with dev `JWT_SECRET`).
 7. **Boot-smoke harness** — copy blog's `dev/smoke.clj` + `:smoke` alias.
@@ -59,14 +66,17 @@ blog-app):
 
 ### Custom `:notification/http-server`
 
-Combines (via reitit, like blog):
-- **REST API** (custom, unchanged): `POST/GET /api/events`, `GET /api/events/:id`,
-  `GET /api/notifications`, `GET /api/notifications/:id`,
-  `POST /api/notifications/:id/retry`, `GET /health`.
-- **Boundary `/web` user routes** (auth/session) — mounted for showcase/consistency (the
-  domain doesn't require auth; endpoints stay public as today).
+Mounts (via reitit, like blog) the **REST API** (custom, unchanged):
+`POST/GET /api/events`, `GET /api/events/:id`, `GET /api/notifications`,
+`GET /api/notifications/:id`, `POST /api/notifications/:id/retry`, `GET /health`.
 
-Middleware: JSON (muuntaja or the existing custom wrap-json-body), params, the existing
+**Do NOT mount boundary `/web` user routes** — notification-service is an API service with
+no auth need, and mounting login UI is noise. The user module's components still
+initialize (and `validate-jwt-secret!` still fires at boot, so **`JWT_SECRET` is required
+regardless** of whether `/web` is served). We simply don't add `:boundary/user-routes` to
+the router. (If a future need arises, mounting `/web` is a one-line addition.)
+
+Middleware: JSON (the existing custom `wrap-json-body` + keyword/params), the existing
 stack. Jetty on `:boundary/http` port **3003**.
 
 ### Integrant components (ported, custom keys)
@@ -79,31 +89,37 @@ Keep the domain wiring, renamed onto the scaffold's config (`ig-config` gets the
   (store + sender + config) — unchanged.
 - `:notification/handlers` — registers order/payment/shipment subscribers on the bus at
   init, unchanged.
-- `:notification/http-server` — new (above), refs the services + `:boundary/user-routes`.
+- `:notification/http-server` — new (above), refs the event-service + notification-service
+  (NOT `:boundary/user-routes` — API-only).
 
 The pure core (`event/core`, `notification/core`, `shared/retry`) + schemas port as-is.
+
+**Port the domain wiring EXACTLY as today** — do not restructure it. In the current
+`system.clj`, `:notification/bus` is passed `{}` (its `create-bus` uses built-in defaults;
+the `:bus` values in the old `dev.edn` are currently dead config), and the notification
+service's `{:channels … :retry …}` config is **hardcoded inline in the ig-config map**,
+not read from a file. Preserve that: keep the bus config and the notification `:config`
+map inline in `ig-config` exactly as they are now. Do NOT invent new `:active`-reading
+wiring. (If desired later, folding into `:active` is a separate change — out of scope.)
 
 ### Config
 
 `resources/conf/{dev,test}/config.edn` `:active`:
 - `:boundary/settings` (name "notification-dev"), `:boundary/http` (port 3003),
   `:boundary/router`, `:boundary/logging`, `:boundary/sqlite` (dev file / test `:memory:`).
-- `:bus {:buffer-size … :worker-count …}` + `:notification {:channels … :retry …}` —
-  ported from the current `dev.edn`/`test.edn` (currently these live in the old
-  `resources/config/*.edn`; move into the aero `:active` map and read them in the
-  relevant init-keys, OR keep reading them as today — decide during planning; simplest is
-  to fold them into `:active` and have the bus/notification init-keys read from config).
+- The domain (`bus`, `notification` channels/retry) config stays inline in `ig-config` as
+  today — not in `:active` (see above).
 
 ## Verification loop
 
 ```bash
-# JWT_SECRET required at boot.
-bb migrate            # user module tables (SQLite) — confirm what user needs; user-db-schema may auto-create at boot instead
+# JWT_SECRET required at boot (user module guard). No bb migrate — user tables are
+# auto-created at boot by :boundary/user-db-schema; the domain has no migrations.
 clojure -M:smoke      # system boots green (bus + stores + services + http-server + user)
 clojure -M:test       # ported pure-core tests (event/notification/retry) pass
 ```
 Manual: `POST /api/events` routes through the bus → a handler creates a notification;
-`GET /api/notifications` lists it; `/health` 200; `/web/login` 200.
+`GET /api/notifications` lists it; `/health` 200. (No `/web` routes — API-only.)
 
 ## Out of scope
 
@@ -114,8 +130,8 @@ Manual: `POST /api/events` routes through the bus → a handler creates a notifi
 ## Risks
 
 - **user module needs a DB in a DB-less app** — mitigated by SQLite for user only; domain
-  stays in-memory. Confirm user tables are created (via `:boundary/user-db-schema` at boot
-  and/or `bb migrate`).
+  stays in-memory. User tables are auto-created at boot by `:boundary/user-db-schema`
+  (`initialize-user-schema!`); no `bb migrate` required (verified in blog-app).
 - **core.async bus under the platform system lifecycle** — ensure `:notification/bus`
   `halt-key!` stops workers cleanly on shutdown (it already has `stop!`).
 - Same scaffold-wiring + sqlite db-spec pitfalls as blog — already solved there; reuse.
