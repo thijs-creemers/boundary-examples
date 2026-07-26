@@ -57,9 +57,9 @@
   [bus notification-service]
   (require '[notification.shared.bus :as msg-bus])
   (let [subscribe! (resolve 'notification.shared.bus/subscribe!)]
-    (subscribe! bus :order/placed
+    (subscribe! bus :notification/order-confirmation
                 (fn [event] (handle-order-placed notification-service event)))
-    (subscribe! bus :order/confirmed
+    (subscribe! bus :notification/order-confirmed
                 (fn [event] (handle-order-confirmed notification-service event)))
-    (subscribe! bus :order/cancelled
+    (subscribe! bus :notification/order-cancelled
                 (fn [event] (handle-order-cancelled notification-service event)))))

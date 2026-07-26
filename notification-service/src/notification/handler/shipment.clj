@@ -13,10 +13,10 @@
    Creates shipping update notification."
   [notification-service event]
   (println "[Handler] Processing shipment.sent:" (:id event))
-  (let [result (notif-ports/create-notification 
-                notification-service 
-                event 
-                :email 
+  (let [result (notif-ports/create-notification
+                notification-service
+                event
+                :email
                 :shipping-update)]
     (when (:ok result)
       (notif-ports/send-and-update notification-service (get-in result [:ok :id])))))
@@ -28,10 +28,10 @@
   (println "[Handler] Processing shipment.delivered:" (:id event))
   ;; Send via both email and push for delivery
   (doseq [channel [:email :push]]
-    (let [result (notif-ports/create-notification 
-                  notification-service 
-                  event 
-                  channel 
+    (let [result (notif-ports/create-notification
+                  notification-service
+                  event
+                  channel
                   :delivery-confirmation)]
       (when (:ok result)
         (notif-ports/send-and-update notification-service (get-in result [:ok :id]))))))
@@ -41,10 +41,10 @@
    Creates return received notification."
   [notification-service event]
   (println "[Handler] Processing shipment.returned:" (:id event))
-  (let [result (notif-ports/create-notification 
-                notification-service 
-                event 
-                :email 
+  (let [result (notif-ports/create-notification
+                notification-service
+                event
+                :email
                 :return-received)]
     (when (:ok result)
       (notif-ports/send-and-update notification-service (get-in result [:ok :id])))))
@@ -58,9 +58,9 @@
   [bus notification-service]
   (require '[notification.shared.bus :as msg-bus])
   (let [subscribe! (resolve 'notification.shared.bus/subscribe!)]
-    (subscribe! bus :shipment/sent 
+    (subscribe! bus :notification/shipping-update
                 (fn [event] (handle-shipment-sent notification-service event)))
-    (subscribe! bus :shipment/delivered 
+    (subscribe! bus :notification/delivery-confirmation
                 (fn [event] (handle-shipment-delivered notification-service event)))
-    (subscribe! bus :shipment/returned 
+    (subscribe! bus :notification/return-received
                 (fn [event] (handle-shipment-returned notification-service event)))))
