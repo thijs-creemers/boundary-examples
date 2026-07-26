@@ -1,27 +1,26 @@
 {;; notification — dev configuration
  :active
- {  :boundary/settings
-    {:name             "notification-dev"
-     :version          "0.1.0"
-     :date-format      "yyyy-MM-dd"
-     :date-time-format "yyyy-MM-dd HH:mm:ss"
-     :features         {}}
+ {:boundary/settings
+  {:name             "notification-dev"
+   :version          "0.1.0"
+   :date-format      "yyyy-MM-dd"
+   :date-time-format "yyyy-MM-dd HH:mm:ss"
+   :features         {}}
 
-   :boundary/h2
-   {:memory true
-    :pool   {:minimum-idle 1 :maximum-pool-size 10}}
+  :boundary/sqlite
+  {:db   "notification-dev.db"
+   :pool {:minimum-idle 1 :maximum-pool-size 3 :connection-timeout-ms 10000}}
 
-   :boundary/http
-   {:port       #or [#env HTTP_PORT 3000]
-    :host       #or [#env HTTP_HOST "0.0.0.0"]
-    :join?      false
-    :port-range {:start 3000 :end 3099}}
+  :boundary/http
+  {:port  #or [#env HTTP_PORT 3003]
+   :host  #or [#env HTTP_HOST "0.0.0.0"]
+   :join? false}
 
-   :boundary/router
-   {:adapter :reitit :coercion :malli :middleware []}
+  :boundary/router
+  {:adapter :reitit :coercion :malli :middleware []}
 
-   :boundary/logging
-   {:level :debug :console true}}
+  :boundary/logging
+  {:level :debug :console true}}
 
  :inactive
  {}}

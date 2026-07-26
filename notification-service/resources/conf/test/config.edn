@@ -1,18 +1,17 @@
 {;; notification — test configuration
  :active
- {  :boundary/settings
-    {:name             "notification-test"
-     :version          "0.1.0"
-     :date-format      "yyyy-MM-dd"
-     :date-time-format "yyyy-MM-dd HH:mm:ss"
-     :features         {}}
+ {:boundary/settings
+  {:name             "notification-test"
+   :version          "0.1.0"
+   :date-format      "yyyy-MM-dd"
+   :date-time-format "yyyy-MM-dd HH:mm:ss"
+   :features         {}}
 
-   :boundary/h2
-   {:memory true
-    :pool   {:minimum-idle 1 :maximum-pool-size 5}}
+  :boundary/sqlite
+  {:db ":memory:"}
 
-   :boundary/logging
-   {:level :warn :console true}}
+  :boundary/logging
+  {:level :warn :console true}}
 
  :inactive
  {}}
