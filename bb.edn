@@ -26,4 +26,11 @@
    :task (babashka.process/shell
           {:dir "blog-app"
            :extra-env {"JWT_SECRET" "dev-secret-change-me-min-32-characters"}}
+          "clojure" "-M:run")}
+
+  run-notification
+  {:doc "Run notification-service with a dev JWT_SECRET"
+   :task (babashka.process/shell
+          {:dir "notification-service"
+           :extra-env {"JWT_SECRET" "dev-secret-change-me-min-32-characters"}}
           "clojure" "-M:run")}}}
