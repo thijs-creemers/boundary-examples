@@ -103,30 +103,15 @@
         _         (when geo? (require 'boundary.geo.shell.module-wiring))
 
         db       (db-spec config)
-        http-cfg (get active :boundary/http {:port 3000 :host "0.0.0.0" :join? false})
         router   (get active :boundary/router {:adapter :reitit :coercion :malli :middleware []})
         i18n-cfg (get active :boundary/i18n {:catalogue-path "boundary/i18n/translations"
                                              :default-locale  :en})
         val-cfg  (get-in active [:boundary/settings :user-validation] {})
 
-        ;; Build HTTP handler config, injecting optional module refs as they are enabled
-        http-handler-cfg (cond-> {:config          config
-                                  :user-routes     (ig/ref :boundary/user-routes)
-                                  :router          (ig/ref :boundary/router)
-                                  :logger          (ig/ref :boundary/logging)
-                                  :metrics-emitter (ig/ref :boundary/metrics)
-                                  :error-reporter  (ig/ref :boundary/error-reporting)
-                                  :user-service    (ig/ref :boundary/user-service)
-                                  :db-context      (ig/ref :boundary/db-context)
-                                  :i18n            (ig/ref :boundary/i18n)}
-                           cache?    (assoc :cache              (ig/ref :boundary/cache))
-                           tenant?   (assoc :tenant-routes      (ig/ref :boundary/tenant-routes)
-                                            :membership-routes  (ig/ref :boundary/membership-routes)
-                                            :tenant-service     (ig/ref :boundary/tenant-service)
-                                            :membership-service (ig/ref :boundary/membership-service))
-                           admin?    (assoc :admin-routes       (ig/ref :boundary/admin-routes))
-                           workflow? (assoc :workflow-routes    (ig/ref :boundary/workflow-routes))
-                           search?   (assoc :search-routes      (ig/ref :boundary/search-routes)))]
+        ;; Notification HTTP server config — reads port from Boundary config
+        notif-http-server-cfg {:event-service        (ig/ref :notification/event-service)
+                               :notification-service (ig/ref :notification/notification-service)
+                               :config               config}]
 
     (cond->
      {:boundary/settings        (:boundary/settings active)
@@ -162,11 +147,25 @@
                                     :mfa-service  (ig/ref :boundary/mfa-service)
                                     :config       config}
 
-       ;; HTTP layer (always wired; optional module refs injected above)
-      :boundary/http-handler http-handler-cfg
-      :boundary/http-server  (merge http-cfg
-                                    {:handler (ig/ref :boundary/http-handler)
-                                     :config  http-cfg})}
+       ;; Notification domain components (in-memory; no DB deps)
+      :notification/bus              {}
+      :notification/event-store      {}
+      :notification/notification-store {}
+      :notification/sender           {:config {:channels {:email {:enabled true}
+                                                          :sms   {:enabled true}
+                                                          :push  {:enabled true}}}}
+      :notification/event-service    {:store (ig/ref :notification/event-store)
+                                      :bus   (ig/ref :notification/bus)}
+      :notification/notification-service {:store  (ig/ref :notification/notification-store)
+                                          :sender (ig/ref :notification/sender)
+                                          :config {:retry {:max-attempts  3
+                                                           :base-delay-ms 1000
+                                                           :max-delay-ms  60000}}}
+      :notification/handlers         {:bus                  (ig/ref :notification/bus)
+                                      :notification-service (ig/ref :notification/notification-service)}
+
+       ;; Notification HTTP server (replaces :boundary/http-handler + :boundary/http-server)
+      :notification/http-server notif-http-server-cfg}
 
       ;; Cache module — enabled by `boundary add cache`
       cache?
