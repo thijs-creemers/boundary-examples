@@ -1,18 +1,13 @@
 {:paths ["src" "resources"]
 
- :deps  {;; Boundary framework (from Clojars)
-         ;; boundary-admin transitively provides: boundary-user, boundary-core,
-         ;; boundary-ui-style, buddy-hashers, buddy-sign, hiccup
-         org.boundary-app/boundary-admin         {:mvn/version "1.0.1-alpha-13"}
-         ;; boundary-platform provides: next.jdbc, honeysql, HikariCP, reitit,
-         ;; muuntaja, integrant, aero, cheshire
-         org.boundary-app/boundary-platform      {:mvn/version "1.0.1-alpha-13"}
-         ;; boundary-observability provides: tools.logging, logback
-         org.boundary-app/boundary-observability {:mvn/version "1.0.1-alpha-13"}
-         org.boundary-app/boundary-core          {:mvn/version "1.0.1-alpha-13"}
-         org.boundary-app/boundary-user          {:mvn/version "1.0.1-alpha-13"}
-         org.boundary-app/boundary-cache         {:mvn/version "1.0.1-alpha-13"}
-         org.boundary-app/boundary-ui-style      {:mvn/version "1.0.1-alpha-13"}
+ :deps  {;; Boundary framework (from Clojars). Since beta-1 the published POMs
+         ;; declare inter-Boundary deps, so listing only the directly-required
+         ;; modules pulls the rest (core, cache, ui-style, shared-ui, …)
+         ;; transitively.
+         org.boundary-app/boundary-admin         {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-platform      {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-observability {:mvn/version "1.0.0-beta-1"}
+         org.boundary-app/boundary-user          {:mvn/version "1.0.0-beta-1"}
 
          ;; Web server
          ring/ring-core                          {:mvn/version "1.15.4"}
@@ -74,4 +69,8 @@
    :jvm-opts  ["-Denv=dev"]}
 
   :db
-  {:extra-deps {org.xerial/sqlite-jdbc {:mvn/version "3.53.0.0"}}}}}
+  {:extra-deps {org.xerial/sqlite-jdbc {:mvn/version "3.53.0.0"}}}
+
+  :smoke
+  {:extra-paths ["dev"]
+   :main-opts   ["-m" "smoke"]}}}

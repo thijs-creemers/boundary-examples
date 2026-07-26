@@ -21,7 +21,7 @@
          (filter #(= event-id (:event-id %)))
          vec))
 
-  (list-notifications [_ options]
+  (list-stored-notifications [_ options]
     (let [{:keys [status channel recipient limit offset]} options
           limit  (or limit 50)
           offset (or offset 0)

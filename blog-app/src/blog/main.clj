@@ -1,20 +1,18 @@
 (ns blog.main
-  "Application entry point.
-   
-   Starts the blog application with the specified profile."
-  (:require [blog.system :as system])
+  "Blog application entry point. Starts the Integrant system and blocks.
+   Requires a JWT_SECRET env var (>=32 chars) — boot fails fast without it."
+  (:require [boundary.config :as config]
+            [integrant.core :as ig])
   (:gen-class))
 
-(defn -main
-  "Start the blog application.
-   
-   Usage:
-     clojure -M:run           # Start with :dev profile
-     clojure -M:run prod      # Start with :prod profile"
-  [& args]
-  (let [profile (keyword (or (first args) "dev"))]
-    (println (str "Starting blog application with profile: " profile))
-    (system/start! profile)
-    (println "Blog is running! Visit http://localhost:3001")
-    ;; Keep the main thread alive
+(defn -main [& _args]
+  (println "Starting blog…")
+  (let [cfg    (config/load-config)
+        system (ig/init (config/ig-config cfg))
+        port   (get-in cfg [:active :boundary/http :port] 3001)]
+    (println (str "Blog running on http://localhost:" port))
+    (.addShutdownHook (Runtime/getRuntime)
+                      (Thread. (fn []
+                                 (println "\nShutting down…")
+                                 (ig/halt! system))))
     @(promise)))

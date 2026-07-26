@@ -1,0 +1,34 @@
+{;; blog — dev configuration
+ :active
+ {:boundary/settings
+  {:name             "blog-dev"
+   :version          "0.1.0"
+   :date-format      "yyyy-MM-dd"
+   :date-time-format "yyyy-MM-dd HH:mm:ss"
+   :features         {}}
+
+  :boundary/sqlite
+  {:db   "blog-dev.db"
+   :pool {:minimum-idle 1 :maximum-pool-size 3 :connection-timeout-ms 10000}}
+
+  :boundary/http
+  {:port  #or [#env HTTP_PORT 3001]
+   :host  #or [#env HTTP_HOST "0.0.0.0"]
+   :join? false}
+
+  :boundary/router
+  {:adapter :reitit :coercion :malli :middleware []}
+
+  :boundary/logging
+  {:level :debug :console true}
+
+  :boundary/admin
+  {:enabled?         true
+   :base-path        "/web/admin"
+   :require-role     :admin
+   :entity-discovery {:mode :allowlist :allowlist #{:posts}}
+   :entities         #merge [#include "../admin/posts.edn"]
+   :pagination       {:default-page-size 20 :max-page-size 200}}}
+
+ :inactive
+ {}}

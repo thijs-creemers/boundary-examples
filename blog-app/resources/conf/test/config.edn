@@ -1,0 +1,17 @@
+{;; blog — test configuration
+ :active
+ {:boundary/settings
+  {:name             "blog-test"
+   :version          "0.1.0"
+   :date-format      "yyyy-MM-dd"
+   :date-time-format "yyyy-MM-dd HH:mm:ss"
+   :features         {}}
+
+  :boundary/sqlite
+  {:db ":memory:"}
+
+  :boundary/logging
+  {:level :warn :console true}}
+
+ :inactive
+ {}}

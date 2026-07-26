@@ -2,7 +2,8 @@
   "Event handler for order-related events.
    
    Subscribes to order events and creates appropriate notifications."
-  (:require [notification.notification.ports :as notif-ports]))
+  (:require [notification.notification.ports :as notif-ports]
+            [notification.shared.bus :as msg-bus]))
 
 ;; =============================================================================
 ;; Order Event Handlers
@@ -55,11 +56,9 @@
 (defn register-handlers
   "Register order event handlers with the message bus."
   [bus notification-service]
-  (require '[notification.shared.bus :as msg-bus])
-  (let [subscribe! (resolve 'notification.shared.bus/subscribe!)]
-    (subscribe! bus :order/placed
-                (fn [event] (handle-order-placed notification-service event)))
-    (subscribe! bus :order/confirmed
-                (fn [event] (handle-order-confirmed notification-service event)))
-    (subscribe! bus :order/cancelled
-                (fn [event] (handle-order-cancelled notification-service event)))))
+  (msg-bus/subscribe! bus :notification/order-confirmation
+                      (fn [event] (handle-order-placed notification-service event)))
+  (msg-bus/subscribe! bus :notification/order-confirmed
+                      (fn [event] (handle-order-confirmed notification-service event)))
+  (msg-bus/subscribe! bus :notification/order-cancelled
+                      (fn [event] (handle-order-cancelled notification-service event))))

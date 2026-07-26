@@ -17,7 +17,7 @@
   (find-by-event [this event-id]
     "Find notifications for an event. Returns vector.")
 
-  (list-notifications [this options]
+  (list-stored-notifications [this options]
     "List notifications with filtering.
      Options: :status, :channel, :recipient, :limit, :offset
      Returns {:notifications [...] :total n}")
@@ -63,7 +63,6 @@
     "Get notification by ID.
      Returns {:ok notification} or {:error :not-found}")
 
-  #_{:clj-kondo/ignore [:redefined-var]}
   (list-notifications [this options]
     "List notifications with filtering.
      Returns {:ok {:notifications [...] :total n}}"))

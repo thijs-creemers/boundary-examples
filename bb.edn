@@ -7,9 +7,30 @@
            (babashka.process/shell {:dir "ecommerce-api"} "clojure" "-M:test"))}
 
   bump-boundary
-  {:doc "Bump Boundary library version across all examples. Usage: bb bump-boundary 1.0.2-alpha-1"
+  {:doc "Bump Boundary library version across all examples. Usage: bb bump-boundary 1.0.0-beta-2"
    :task (let [new-ver (first *command-line-args*)]
            (when-not new-ver (throw (ex-info "Usage: bb bump-boundary <version>" {})))
-           (doseq [f ["ecommerce-api/deps.edn"]]
-             (spit f (str/replace (slurp f) (re-pattern "1\\.\\d+\\.\\d+-alpha-\\d+") new-ver)))
-           (println "Bumped to" new-ver))}}}
+           (doseq [f ["ecommerce-api/deps.edn" "blog-app/deps.edn" "notification-service/deps.edn"]]
+             (spit f (clojure.string/replace (slurp f) (re-pattern "1\\.\\d+\\.\\d+-(alpha|beta)-\\d+") new-ver)))
+           (println "Bumped to" new-ver))}
+
+  run-ecommerce
+  {:doc "Run ecommerce-api with a dev JWT_SECRET"
+   :task (babashka.process/shell
+          {:dir "ecommerce-api"
+           :extra-env {"JWT_SECRET" "dev-secret-change-me-min-32-characters"}}
+          "clojure" "-M:run")}
+
+  run-blog
+  {:doc "Run blog-app with a dev JWT_SECRET"
+   :task (babashka.process/shell
+          {:dir "blog-app"
+           :extra-env {"JWT_SECRET" "dev-secret-change-me-min-32-characters"}}
+          "clojure" "-M:run")}
+
+  run-notification
+  {:doc "Run notification-service with a dev JWT_SECRET"
+   :task (babashka.process/shell
+          {:dir "notification-service"
+           :extra-env {"JWT_SECRET" "dev-secret-change-me-min-32-characters"}}
+          "clojure" "-M:run")}}}
