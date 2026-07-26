@@ -6,11 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A mono-repo of three Clojure example applications demonstrating the [Boundary Framework](https://boundary-app.org) using the **Functional Core / Imperative Shell (FC/IS)** architecture pattern.
 
-| App | Port | Description |
-|-----|------|-------------|
-| `blog-app/` | 3001 | HTMX server-rendered blog with SQLite |
-| `ecommerce-api/` | 3002 | REST API with cart, orders, and mock Stripe payments |
-| `notification-service/` | 3003 | Event-driven pub/sub with core.async |
+All three apps run on Boundary **`1.0.0-beta-1`** (pinned in each app's `deps.edn`).
+`blog-app` and `notification-service` were scaffolded with `boundary new` and their
+domain code ported in; `ecommerce-api` was upgraded in place. Each requires a
+`JWT_SECRET` env var (≥32 chars) at boot — use the `bb run-<app>` tasks (which inject a
+dev secret) or export your own; see each app's `.env.example`.
+
+| App | Port | Boundary modules | Description |
+|-----|------|------------------|-------------|
+| `blog-app/` | 3001 | platform, user, admin, ui-style | HTMX server-rendered blog with SQLite; posts managed via the admin auto-CRUD UI, public pages served by a custom `:blog/http-server` |
+| `ecommerce-api/` | 3002 | platform, user, admin | REST API with cart, orders, and mock Stripe payments |
+| `notification-service/` | 3003 | platform, user | Event-driven pub/sub with a custom `core.async` bus (kept); SQLite backs the user module only, domain stores stay in-memory. Realtime push is a future enhancement (BOU-233) |
 
 ## Commands
 
