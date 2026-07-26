@@ -62,7 +62,7 @@
       {:error :not-found :id notification-id}))
 
   (list-notifications [_ options]
-    (let [result (ports/list-notifications store options)]
+    (let [result (ports/list-stored-notifications store options)]
       {:ok result})))
 
 ;; =============================================================================
