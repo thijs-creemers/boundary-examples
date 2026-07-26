@@ -37,7 +37,11 @@ Copy to `/tmp/notif-port/` before relocation:
 - `src/notification/shared/{bus,retry}.clj`
 - `src/notification/system.clj` (source of the domain init-key defmethods + ig-config entries — will be split)
 - `test/**` (all tests)
-- `resources/config/{dev,test}.edn` (source of domain config values to inline)
+- `resources/config/{dev,test}.edn` (FYI only — these are **dead config**, never read by the
+  current `system.clj`. The **source of truth for inline domain config values (bus args,
+  notification `:config` channels/retry) is `system.clj` itself**, NOT these files. E.g.
+  the old `dev.edn` says `max-delay-ms 300000` but `system.clj` inlines `60000` — use
+  `system.clj`. Do not port values from the config files.)
 
 ---
 
@@ -67,8 +71,9 @@ git commit -m "feat(notification): scaffold Boundary app, relocate, preserve dom
 - [ ] **Step 1:** In root `bb.edn`, add `"notification-service/deps.edn"` to `bump-boundary`'s file vector.
 - [ ] **Step 2:** `bb bump-boundary 1.0.0-beta-1`; verify all `org.boundary-app/*` in notification-service/deps.edn are beta-1, no alpha.
 - [ ] **Step 3:** Add `org.xerial/sqlite-jdbc {:mvn/version "3.53.0.0"}` to base `:deps` (mirror blog-app). Keep `org.clojure/core.async` (verify it's present — the bus needs it; if the scaffold dropped it, add `org.clojure/core.async {:mvn/version "1.9.865"}`).
-- [ ] **Step 4:** `cd notification-service && clojure -Spath > /dev/null && echo RESOLVED`.
-- [ ] **Step 5:** Commit `git add notification-service/deps.edn bb.edn && git commit -m "build(notification): bump Boundary to 1.0.0-beta-1; add sqlite-jdbc + bump task"`.
+- [ ] **Step 4:** Align the REPL alias to the mono-repo convention (root CLAUDE.md: notification-service uses `clojure -M:repl-clj` on **port 7891**). The scaffold generates `:repl` on port 7888 — rename it to `:repl-clj` and set `--port 7891` (mirror blog-app's `:repl-clj`).
+- [ ] **Step 5:** `cd notification-service && clojure -Spath > /dev/null && echo RESOLVED`.
+- [ ] **Step 6:** Commit `git add notification-service/deps.edn bb.edn && git commit -m "build(notification): bump Boundary to 1.0.0-beta-1; add sqlite-jdbc + bump task; :repl-clj@7891"`.
 
 ---
 
@@ -91,7 +96,11 @@ git commit -m "feat(notification): scaffold Boundary app, relocate, preserve dom
 - [ ] **Step 1:** Confirm pure/domain namespaces compile unchanged: `event/core`, `notification/core`, `shared/retry`, `shared/bus`, schemas, ports, stores, services, sender, handlers. Adjust only if they referenced the old `notification.system`/config.
 - [ ] **Step 2:** Merge the domain `ig/init-key`/`halt-key!` defmethods from the OLD system.clj (`/tmp/notif-port/system.clj`) into the scaffold's `src/notification/system.clj`: `:notification/bus` (+ halt stops workers via `bus/stop!`), `:notification/event-store`, `:notification/notification-store`, `:notification/sender`, `:notification/event-service`, `:notification/notification-service`, `:notification/handlers`, and a `:notification/http-server`. Keep the notification service `:config` map (channels/retry) and the bus arg inline exactly as the old code had them (do not fold into `:active`).
 - [ ] **Step 3:** The `:notification/http-server` init-key: build the reitit ring-handler from the ported event + notification REST routes (`/api/events*`, `/api/notifications*`, `/health`) with the existing middleware (wrap-json-body, wrap-keyword-params, wrap-params). Start Jetty on the `:boundary/http` port (read from config). Add `halt-key!` to stop it. (No `/web`, no normalized->reitit — API only.) Model the lifecycle on blog's `:blog/http-server`.
-- [ ] **Step 4:** In `src/boundary/config.clj` `ig-config`: REMOVE `:boundary/http-handler` + `:boundary/http-server`; ADD the domain component entries (`:notification/bus`, `-event-store`, `-notification-store`, `-sender`, `-event-service`, `-notification-service`, `-handlers`, `-http-server`) with their `ig/ref`s exactly mirroring the old system.clj's `config` map. `:notification/http-server` refs event-service + notification-service (+ config for port). Ensure `notification.system` is required so defmethods load (scaffold requires the app system ns — verify).
+- [ ] **Step 4:** In `src/boundary/config.clj` `ig-config`: the scaffold **already generates** all the `:boundary/*` entries (logging, metrics, error-reporting, i18n, router, user-db-schema, user-repository, session/audit-repository, mfa/auth/user-service, user-routes, http-handler, http-server). **Keep those as generated** — do NOT re-derive or copy them from blog-app. Only:
+  - **REMOVE** `:boundary/http-handler` + `:boundary/http-server` (replaced by the custom server).
+  - **LEAVE** `:boundary/user-routes` in place as generated — it's a terminal component (nothing refs it; the custom API-only server just doesn't mount it). Harmless; don't delete it.
+  - **ADD** the domain component entries (`:notification/bus`, `-event-store`, `-notification-store`, `-sender`, `-event-service`, `-notification-service`, `-handlers`, `-http-server`) with their `ig/ref`s exactly mirroring the OLD `system.clj`'s `config` map.
+  - `:notification/http-server` refs event-service + notification-service + `config` (for the port). Ensure `notification.system` is required so its defmethods load (scaffold requires the app system ns — verify).
 - [ ] **Step 5:** Compile check `cd notification-service && clojure -e "(require 'boundary.config 'notification.system :reload)"` → no error. And `clojure -M:test` stays green.
 - [ ] **Step 6:** Commit `git add notification-service/src && git commit -m "feat(notification): port domain (bus/stores/services/handlers) + custom :notification/http-server"`.
 
@@ -102,8 +111,8 @@ git commit -m "feat(notification): scaffold Boundary app, relocate, preserve dom
 **Files:** `notification-service/dev/smoke.clj`, `notification-service/src/notification/main.clj`, `deps.edn` (`:smoke` + `:run`), root `bb.edn` (`run-notification`).
 
 - [ ] **Step 1:** Create `dev/smoke.clj` (copy blog's — requires `boundary.config`, `(ig/init (config/ig-config (config/load-config)))` then `ig/halt!`, catch Throwable, print PASSED/FAILED, exit 0/1).
-- [ ] **Step 2:** Create `src/notification/main.clj` (copy blog's `blog.main` shape → `notification.main`: bind cfg once, init, print port, shutdown hook halts, block).
-- [ ] **Step 3:** Add `:smoke {:extra-paths ["dev"] :main-opts ["-m" "smoke"]}` and `:run {:main-opts ["-m" "notification.main"]}` to `deps.edn`.
+- [ ] **Step 2:** Create `src/notification/main.clj` as a **clean replacement** (the old `main.clj` was deleted in Task 1; do NOT adapt it — its old signature passed a flat `{:port …}` map to a `start-system` that no longer exists). Copy blog's `blog.main` shape → `notification.main`: bind `cfg` once via `config/load-config`, `ig/init (config/ig-config cfg)`, print port from `(get-in cfg [:active :boundary/http :port])`, shutdown hook `ig/halt!`, block on `@(promise)`.
+- [ ] **Step 3:** Ensure `deps.edn` has `:smoke {:extra-paths ["dev"] :main-opts ["-m" "smoke"]}` and `:run {:main-opts ["-m" "notification.main"]}` (the scaffold may already include `:run` — verify it points to `notification.main`).
 - [ ] **Step 4:** Add `run-notification` task to root `bb.edn` (`:dir "notification-service"`, `:extra-env {"JWT_SECRET" "dev-secret-change-me-min-32-characters"}`, `clojure -M:run`).
 - [ ] **Step 5:** Commit `git add notification-service/dev notification-service/src/notification/main.clj notification-service/deps.edn bb.edn && git commit -m "feat(notification): boot-smoke harness + notification.main run entry"`.
 
